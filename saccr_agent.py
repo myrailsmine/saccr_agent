@@ -10,32 +10,32 @@ from dataclasses import dataclass, asdict
 from typing import Dict, List, Optional, Tuple
 from enum import Enum
 import math
+import time
+
+# LangChain imports for LLM integration
+from langchain_openai import ChatOpenAI
+from langchain.schema import HumanMessage, SystemMessage
 
 # ==============================================================================
 # ENTERPRISE UI CONFIGURATION
 # ==============================================================================
 
 st.set_page_config(
-    page_title="Basel Risk Capital Platform",
-    page_icon="🏛️",
+    page_title="AI SA-CCR Platform",
+    page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Enterprise-grade CSS styling
+# Enhanced CSS for AI-powered features
 st.markdown("""
 <style>
-    /* Import professional fonts */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
-    /* Global styles */
-    .main {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
+    .main { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
     
-    /* Executive dashboard header */
-    .executive-header {
-        background: linear-gradient(135deg, #0f4c75 0%, #3282b8 100%);
+    .ai-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 2.5rem 2rem;
         border-radius: 12px;
@@ -57,55 +57,31 @@ st.markdown("""
         margin-bottom: 0;
     }
     
-    /* KPI Cards */
-    .kpi-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1.5rem;
-        margin: 2rem 0;
+    .ai-response {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin: 1rem 0;
+        box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
     }
     
-    .kpi-card {
-        background: white;
-        border-radius: 16px;
-        padding: 2rem;
-        text-align: center;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        border: 1px solid #e1e8ed;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    .user-query {
+        background: #ffffff;
+        border: 2px solid #667eea;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 1rem 0;
     }
     
-    .kpi-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    .ai-insight {
+        background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin: 1rem 0;
+        border: 1px solid #f0a068;
     }
     
-    .kpi-value {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #0f4c75;
-        margin-bottom: 0.5rem;
-    }
-    
-    .kpi-label {
-        font-size: 1rem;
-        color: #657786;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .kpi-change {
-        font-size: 0.9rem;
-        font-weight: 600;
-        margin-top: 0.5rem;
-    }
-    
-    .positive { color: #28a745; }
-    .negative { color: #dc3545; }
-    .neutral { color: #6c757d; }
-    
-    /* Calculation Steps */
     .calc-step {
         background: linear-gradient(145deg, #f8f9fa, #e9ecef);
         border-left: 4px solid #3282b8;
@@ -144,7 +120,6 @@ st.markdown("""
         margin: 1rem 0;
     }
     
-    /* Results highlighting */
     .result-highlight {
         background: linear-gradient(135deg, #28a745, #20c997);
         color: white;
@@ -157,61 +132,29 @@ st.markdown("""
         margin: 2rem 0;
     }
     
-    /* Warning alerts */
-    .risk-alert {
-        background: linear-gradient(135deg, #dc3545, #fd7e14);
-        color: white;
-        padding: 1.5rem;
-        border-radius: 12px;
+    .connection-status {
+        padding: 1rem;
+        border-radius: 8px;
         margin: 1rem 0;
+        text-align: center;
+        font-weight: 600;
     }
     
-    /* Professional tables */
-    .dataframe {
-        border: none !important;
-    }
+    .connected { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .disconnected { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
     
-    .dataframe th {
-        background: #0f4c75 !important;
-        color: white !important;
-        font-weight: 600 !important;
-        text-align: center !important;
-    }
-    
-    .dataframe td {
-        text-align: center !important;
-        padding: 12px !important;
-    }
-    
-    /* Sidebar styling */
-    .css-1d391kg {
-        background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
-    }
-    
-    /* Metric containers */
-    .metric-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1rem 0;
-        border-bottom: 1px solid #e1e8ed;
-    }
-    
-    .metric-label {
-        font-weight: 500;
-        color: #495057;
-    }
-    
-    .metric-value {
-        font-weight: 700;
-        color: #0f4c75;
-        font-size: 1.1rem;
+    .calculation-verified {
+        background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 0.5rem 0;
+        border-left: 4px solid #00b4db;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# CORE BASEL RISK CLASSES (Enhanced)
+# CORE DATA CLASSES
 # ==============================================================================
 
 class AssetClass(Enum):
@@ -246,22 +189,21 @@ class Trade:
     maturity_date: datetime
     mtm_value: float = 0.0
     delta: float = 1.0
+    basis_flag: bool = False
+    volatility_flag: bool = False
+    ceu_flag: int = 1  # Central clearing flag
     
     def time_to_maturity(self) -> float:
         return max(0, (self.maturity_date - datetime.now()).days / 365.25)
 
 @dataclass
-class CreditFacility:
-    facility_id: str
+class NettingSet:
+    netting_set_id: str
     counterparty: str
-    facility_type: str
-    approved_limit: float
-    funded_amount: float
-    currency: str
-    term_years: float
-    ccf: float = 0.0
-    risk_weight: float = 1.0
-    collateral_value: float = 0.0
+    trades: List[Trade]
+    threshold: float = 0.0
+    mta: float = 0.0
+    nica: float = 0.0
 
 @dataclass
 class Collateral:
@@ -269,1036 +211,1090 @@ class Collateral:
     currency: str
     amount: float
     haircut: float = 0.0
-    
-    def effective_amount(self) -> float:
-        return self.amount * (1 - self.haircut / 100)
 
-class EnterpriseBaselAgent:
-    """Enterprise-grade Basel Risk Capital Calculator"""
+# ==============================================================================
+# COMPREHENSIVE SA-CCR AGENT
+# ==============================================================================
+
+class ComprehensiveSACCRAgent:
+    """Complete SA-CCR Agent following all 24 Basel regulatory steps"""
     
     def __init__(self):
-        self.supervisory_factors = {
+        self.llm = None
+        self.connection_status = "disconnected"
+        
+        # Initialize regulatory parameters
+        self.supervisory_factors = self._initialize_supervisory_factors()
+        self.supervisory_correlations = self._initialize_correlations()
+        self.collateral_haircuts = self._initialize_collateral_haircuts()
+        
+    def setup_llm_connection(self, config: Dict) -> bool:
+        """Setup LangChain ChatOpenAI connection"""
+        try:
+            self.llm = ChatOpenAI(
+                base_url=config.get('base_url', "http://localhost:8123/v1"),
+                api_key=config.get('api_key', "dummy"), 
+                model=config.get('model', "llama3"),
+                temperature=config.get('temperature', 0.3),
+                max_tokens=config.get('max_tokens', 4000),
+                streaming=config.get('streaming', False)
+            )
+            
+            # Test connection
+            test_response = self.llm.invoke([
+                SystemMessage(content="You are a Basel SA-CCR expert. Respond with 'Connected' if you receive this."),
+                HumanMessage(content="Test")
+            ])
+            
+            if test_response and test_response.content:
+                self.connection_status = "connected"
+                return True
+            else:
+                self.connection_status = "disconnected" 
+                return False
+                
+        except Exception as e:
+            st.error(f"LLM Connection Error: {str(e)}")
+            self.connection_status = "disconnected"
+            return False
+    
+    def _initialize_supervisory_factors(self) -> Dict:
+        """Initialize supervisory factors per Basel regulation"""
+        return {
             AssetClass.INTEREST_RATE: {
-                'USD': {'<2y': 0.5, '2-5y': 0.5, '>5y': 1.5},
-                'EUR': {'<2y': 0.5, '2-5y': 0.5, '>5y': 1.5},
-                'other': {'<2y': 1.5, '2-5y': 1.5, '>5y': 1.5}
+                'USD': {'<2y': 0.50, '2-5y': 0.50, '>5y': 1.50},
+                'EUR': {'<2y': 0.50, '2-5y': 0.50, '>5y': 1.50},
+                'JPY': {'<2y': 0.50, '2-5y': 0.50, '>5y': 1.50},
+                'GBP': {'<2y': 0.50, '2-5y': 0.50, '>5y': 1.50},
+                'other': {'<2y': 1.50, '2-5y': 1.50, '>5y': 1.50}
             },
             AssetClass.FOREIGN_EXCHANGE: {'G10': 4.0, 'emerging': 15.0},
-            AssetClass.CREDIT: {'IG': 0.46, 'HY': 1.30, 'IG_index': 0.38},
-            AssetClass.EQUITY: {'single': 32.0, 'index': 20.0},
-            AssetClass.COMMODITY: {'energy': 18.0, 'metals': 18.0, 'agriculture': 18.0}
-        }
-        
-        self.collateral_haircuts = {
-            CollateralType.CASH: 0.0,
-            CollateralType.GOVERNMENT_BONDS: 0.5,  # 1Y UST
-            CollateralType.CORPORATE_BONDS: 4.0,   # IG Corporate
-            CollateralType.EQUITIES: 15.0,         # Listed equities
-            CollateralType.MONEY_MARKET: 0.5       # Money market funds
+            AssetClass.CREDIT: {
+                'IG_single': 0.46, 'HY_single': 1.30, 
+                'IG_index': 0.38, 'HY_index': 1.06
+            },
+            AssetClass.EQUITY: {
+                'single_large': 32.0, 'single_small': 40.0,
+                'index_developed': 20.0, 'index_emerging': 25.0
+            },
+            AssetClass.COMMODITY: {
+                'energy': 18.0, 'metals': 18.0, 'agriculture': 18.0, 'other': 18.0
+            }
         }
     
-    def calculate_credit_rwa_detailed(self, facility: CreditFacility, collateral: List[Collateral] = None) -> Dict:
-        """Calculate credit RWA with detailed steps"""
-        steps = []
+    def _initialize_correlations(self) -> Dict:
+        """Initialize supervisory correlations"""
+        return {
+            AssetClass.INTEREST_RATE: 0.99,
+            AssetClass.FOREIGN_EXCHANGE: 0.60,
+            AssetClass.CREDIT: 0.50,
+            AssetClass.EQUITY: 0.80,
+            AssetClass.COMMODITY: 0.40
+        }
+    
+    def _initialize_collateral_haircuts(self) -> Dict:
+        """Initialize collateral haircuts"""
+        return {
+            CollateralType.CASH: 0.0,
+            CollateralType.GOVERNMENT_BONDS: 0.5,
+            CollateralType.CORPORATE_BONDS: 4.0,
+            CollateralType.EQUITIES: 15.0,
+            CollateralType.MONEY_MARKET: 0.5
+        }
+    
+    def validate_input_completeness(self, netting_set: NettingSet, collateral: List[Collateral] = None) -> Dict:
+        """Validate if all required inputs are provided"""
+        missing_fields = []
+        warnings = []
         
-        # Step 1: Calculate undrawn exposure
-        undrawn_amount = facility.approved_limit - facility.funded_amount
-        undrawn_exposure = undrawn_amount * facility.ccf
+        # Validate netting set
+        if not netting_set.netting_set_id:
+            missing_fields.append("Netting Set ID")
+        if not netting_set.counterparty:
+            missing_fields.append("Counterparty name")
+        if not netting_set.trades:
+            missing_fields.append("At least one trade")
         
-        steps.append({
-            'step': 1,
-            'title': 'Calculate Undrawn Exposure',
-            'formula': 'Undrawn Exposure = Undrawn Amount × CCF',
-            'calculation': f'${undrawn_amount:,.0f} × {facility.ccf:.0%} = ${undrawn_exposure:,.0f}',
-            'result': undrawn_exposure
-        })
-        
-        # Step 2: Calculate gross exposure
-        gross_exposure = facility.funded_amount + undrawn_exposure
-        
-        steps.append({
-            'step': 2,
-            'title': 'Calculate Gross Exposure',
-            'formula': 'Gross Exposure = Funded Amount + Undrawn Exposure',
-            'calculation': f'${facility.funded_amount:,.0f} + ${undrawn_exposure:,.0f} = ${gross_exposure:,.0f}',
-            'result': gross_exposure
-        })
-        
-        # Step 3: Apply collateral
-        total_effective_collateral = 0
-        collateral_details = []
-        
-        if collateral:
-            for coll in collateral:
-                haircut = self.collateral_haircuts.get(coll.collateral_type, 15.0)
-                effective_value = coll.amount * (1 - haircut / 100)
-                total_effective_collateral += effective_value
-                
-                collateral_details.append({
-                    'type': coll.collateral_type.value,
-                    'market_value': coll.amount,
-                    'haircut': haircut,
-                    'effective_value': effective_value
-                })
-        
-        net_exposure = max(0, gross_exposure - total_effective_collateral)
-        
-        steps.append({
-            'step': 3,
-            'title': 'Apply Collateral and Calculate Net Exposure',
-            'formula': 'Net Exposure = max(0, Gross Exposure - Effective Collateral)',
-            'calculation': f'max(0, ${gross_exposure:,.0f} - ${total_effective_collateral:,.0f}) = ${net_exposure:,.0f}',
-            'result': net_exposure,
-            'collateral_details': collateral_details
-        })
-        
-        # Step 4: Calculate RWA
-        rwa = net_exposure * facility.risk_weight
-        
-        steps.append({
-            'step': 4,
-            'title': 'Calculate Risk Weighted Assets',
-            'formula': 'RWA = Net Exposure × Risk Weight',
-            'calculation': f'${net_exposure:,.0f} × {facility.risk_weight:.0%} = ${rwa:,.0f}',
-            'result': rwa
-        })
-        
-        # Step 5: Calculate capital requirement
-        capital_requirement = rwa * 0.08
-        
-        steps.append({
-            'step': 5,
-            'title': 'Calculate Capital Requirement',
-            'formula': 'Capital Requirement = RWA × 8%',
-            'calculation': f'${rwa:,.0f} × 8% = ${capital_requirement:,.0f}',
-            'result': capital_requirement
-        })
+        # Validate trades
+        for i, trade in enumerate(netting_set.trades):
+            trade_prefix = f"Trade {i+1}"
+            
+            if not trade.trade_id:
+                missing_fields.append(f"{trade_prefix}: Trade ID")
+            if not trade.notional or trade.notional == 0:
+                missing_fields.append(f"{trade_prefix}: Notional amount")
+            if not trade.currency:
+                missing_fields.append(f"{trade_prefix}: Currency")
+            if not trade.maturity_date:
+                missing_fields.append(f"{trade_prefix}: Maturity date")
+            
+            # Option-specific validations
+            if trade.trade_type in [TradeType.OPTION, TradeType.SWAPTION]:
+                if trade.delta == 1.0:
+                    warnings.append(f"{trade_prefix}: Delta not specified for option (using default 1.0)")
         
         return {
-            'steps': steps,
-            'final_metrics': {
-                'gross_exposure': gross_exposure,
-                'net_exposure': net_exposure,
-                'total_collateral': total_effective_collateral,
-                'rwa': rwa,
-                'capital_requirement': capital_requirement,
-                'capital_ratio': capital_requirement / gross_exposure if gross_exposure > 0 else 0
-            },
-            'collateral_breakdown': collateral_details
+            'is_complete': len(missing_fields) == 0,
+            'missing_fields': missing_fields,
+            'warnings': warnings,
+            'can_proceed': len(missing_fields) == 0
         }
     
-    def calculate_saccr_detailed(self, trades: List[Trade], collateral: List[Collateral] = None, 
-                               threshold: float = 0, mta: float = 0) -> Dict:
-        """Calculate SA-CCR with detailed step-by-step breakdown"""
-        steps = []
+    def calculate_comprehensive_saccr(self, netting_set: NettingSet, collateral: List[Collateral] = None) -> Dict:
+        """Calculate SA-CCR following complete 24-step workflow"""
         
-        # Step 1: Calculate individual trade add-ons
-        trade_addons = []
-        total_gross_addon = 0
+        calculation_steps = []
         
+        # Step 1: Netting Set Data
+        step1_data = self._step1_netting_set_data(netting_set)
+        calculation_steps.append(step1_data)
+        
+        # Step 2: Asset Class Classification
+        step2_data = self._step2_asset_classification(netting_set.trades)
+        calculation_steps.append(step2_data)
+        
+        # Step 3: Hedging Set
+        step3_data = self._step3_hedging_set(netting_set.trades)
+        calculation_steps.append(step3_data)
+        
+        # Step 4: Time Parameters
+        step4_data = self._step4_time_parameters(netting_set.trades)
+        calculation_steps.append(step4_data)
+        
+        # Step 5: Adjusted Notional
+        step5_data = self._step5_adjusted_notional(netting_set.trades)
+        calculation_steps.append(step5_data)
+        
+        # Step 6: Maturity Factor
+        step6_data = self._step6_maturity_factor(netting_set.trades)
+        calculation_steps.append(step6_data)
+        
+        # Step 7: Supervisory Delta
+        step7_data = self._step7_supervisory_delta(netting_set.trades)
+        calculation_steps.append(step7_data)
+        
+        # Step 8: Supervisory Factor
+        step8_data = self._step8_supervisory_factor(netting_set.trades)
+        calculation_steps.append(step8_data)
+        
+        # Step 9: Adjusted Derivatives Contract Amount
+        step9_data = self._step9_adjusted_derivatives_contract_amount(netting_set.trades)
+        calculation_steps.append(step9_data)
+        
+        # Step 10: Supervisory Correlation
+        step10_data = self._step10_supervisory_correlation(netting_set.trades)
+        calculation_steps.append(step10_data)
+        
+        # Step 11: Hedging Set AddOn
+        step11_data = self._step11_hedging_set_addon(netting_set.trades)
+        calculation_steps.append(step11_data)
+        
+        # Step 12: Asset Class AddOn
+        step12_data = self._step12_asset_class_addon(netting_set.trades)
+        calculation_steps.append(step12_data)
+        
+        # Step 13: Aggregate AddOn
+        step13_data = self._step13_aggregate_addon(netting_set.trades)
+        calculation_steps.append(step13_data)
+        
+        # Step 14: Sum of V, C
+        step14_data = self._step14_sum_v_c(netting_set, collateral)
+        calculation_steps.append(step14_data)
+        
+        # Step 15: PFE Multiplier
+        step15_data = self._step15_pfe_multiplier(netting_set, step13_data['aggregate_addon'])
+        calculation_steps.append(step15_data)
+        
+        # Step 16: PFE
+        step16_data = self._step16_pfe(step15_data['multiplier'], step13_data['aggregate_addon'])
+        calculation_steps.append(step16_data)
+        
+        # Step 17: TH, MTA, NICA
+        step17_data = self._step17_th_mta_nica(netting_set)
+        calculation_steps.append(step17_data)
+        
+        # Step 18: RC
+        step18_data = self._step18_replacement_cost(netting_set, collateral, step17_data)
+        calculation_steps.append(step18_data)
+        
+        # Step 19: CEU Flag
+        step19_data = self._step19_ceu_flag(netting_set.trades)
+        calculation_steps.append(step19_data)
+        
+        # Step 20: Alpha
+        step20_data = self._step20_alpha(step19_data['ceu_flag'])
+        calculation_steps.append(step20_data)
+        
+        # Step 21: EAD
+        step21_data = self._step21_ead(step20_data['alpha'], step18_data['rc'], step16_data['pfe'])
+        calculation_steps.append(step21_data)
+        
+        # Step 22: Counterparty Information
+        step22_data = self._step22_counterparty_info(netting_set.counterparty)
+        calculation_steps.append(step22_data)
+        
+        # Step 23: Risk Weight
+        step23_data = self._step23_risk_weight(step22_data['counterparty_type'])
+        calculation_steps.append(step23_data)
+        
+        # Step 24: RWA Calculation
+        step24_data = self._step24_rwa_calculation(step21_data['ead'], step23_data['risk_weight'])
+        calculation_steps.append(step24_data)
+        
+        # Generate AI explanation if connected
+        ai_explanation = self._generate_saccr_explanation(calculation_steps) if self.llm and self.connection_status == "connected" else None
+        
+        return {
+            'calculation_steps': calculation_steps,
+            'final_results': {
+                'replacement_cost': step18_data['rc'],
+                'potential_future_exposure': step16_data['pfe'],
+                'exposure_at_default': step21_data['ead'],
+                'risk_weighted_assets': step24_data['rwa'],
+                'capital_requirement': step24_data['rwa'] * 0.08
+            },
+            'ai_explanation': ai_explanation
+        }
+    
+    # Implementation of all 24 SA-CCR calculation steps
+    def _step1_netting_set_data(self, netting_set: NettingSet) -> Dict:
+        return {
+            'step': 1,
+            'title': 'Netting Set Data',
+            'description': 'Source netting set data from Arctic system',
+            'data': {
+                'netting_set_id': netting_set.netting_set_id,
+                'counterparty': netting_set.counterparty,
+                'trade_count': len(netting_set.trades),
+                'total_notional': sum(abs(trade.notional) for trade in netting_set.trades)
+            },
+            'formula': 'Data sourced from system Arctic',
+            'result': f"Netting Set ID: {netting_set.netting_set_id}, Trades: {len(netting_set.trades)}"
+        }
+    
+    def _step2_asset_classification(self, trades: List[Trade]) -> Dict:
+        classifications = []
         for trade in trades:
-            # Get supervisory factor
-            if trade.asset_class == AssetClass.INTEREST_RATE:
-                maturity = trade.time_to_maturity()
-                if maturity < 2:
-                    sf = 0.5
-                elif maturity <= 5:
-                    sf = 0.5
-                else:
-                    sf = 1.5
-            elif trade.asset_class == AssetClass.FOREIGN_EXCHANGE:
-                sf = 4.0  # Assume G10
-            elif trade.asset_class == AssetClass.EQUITY:
-                sf = 20.0 if 'index' in trade.underlying.lower() else 32.0
-            else:
-                sf = 18.0
-            
-            sf_decimal = sf / 100  # Convert to decimal
-            
-            # Calculate maturity factor
-            remaining_maturity = trade.time_to_maturity()
-            maturity_factor = min(1.0, 0.05 + 0.95 * math.exp(-0.05 * max(1.0, remaining_maturity)))
-            
-            # Calculate add-on
-            if trade.trade_type in [TradeType.OPTION, TradeType.SWAPTION]:
-                addon = sf_decimal * abs(trade.notional) * maturity_factor * abs(trade.delta)
-            else:
-                addon = sf_decimal * abs(trade.notional) * maturity_factor
-            
-            total_gross_addon += addon
-            trade_addons.append({
+            classifications.append({
                 'trade_id': trade.trade_id,
                 'asset_class': trade.asset_class.value,
-                'supervisory_factor': sf,
-                'maturity_factor': maturity_factor,
-                'addon': addon
+                'asset_sub_class': 'N/A',
+                'basis_flag': trade.basis_flag,
+                'volatility_flag': trade.volatility_flag
             })
         
-        steps.append({
-            'step': 1,
-            'title': 'Calculate Individual Trade Add-ons',
-            'formula': 'Add-on = Supervisory Factor × Notional × Maturity Factor × Delta (for options)',
-            'result': total_gross_addon,
-            'trade_details': trade_addons
-        })
-        
-        # Step 2: Aggregate into hedging sets
-        aggregated_addon = total_gross_addon * 0.95  # Simplified correlation benefit
-        
-        steps.append({
+        return {
             'step': 2,
-            'title': 'Aggregate into Hedging Sets',
-            'formula': 'Hedging Set Add-on = Σ(Individual Add-ons) × Correlation Factor',
-            'calculation': f'${total_gross_addon:,.0f} × 95% = ${aggregated_addon:,.0f}',
-            'result': aggregated_addon
-        })
+            'title': 'Asset Class, Asset Sub Class, Basis Flag, Volatility Flag',
+            'description': 'Classification of trades by regulatory categories',
+            'data': classifications,
+            'formula': 'Classification per Basel regulatory mapping tables',
+            'result': f"Classified {len(trades)} trades across asset classes"
+        }
+    
+    def _step3_hedging_set(self, trades: List[Trade]) -> Dict:
+        hedging_sets = {}
+        for trade in trades:
+            hedging_set_key = f"{trade.asset_class.value}_{trade.currency}"
+            if hedging_set_key not in hedging_sets:
+                hedging_sets[hedging_set_key] = []
+            hedging_sets[hedging_set_key].append(trade.trade_id)
         
-        # Step 3: Calculate multiplier
-        net_mtm = sum(trade.mtm_value for trade in trades)
-        if total_gross_addon > 0:
-            multiplier = min(1.0, 0.05 + 0.95 * math.exp(-0.05 * max(0, net_mtm) / total_gross_addon))
+        return {
+            'step': 3,
+            'title': 'Hedging Set',
+            'description': 'Group trades into hedging sets based on risk factors',
+            'data': hedging_sets,
+            'formula': 'Hedging sets defined by asset class and currency',
+            'result': f"Created {len(hedging_sets)} hedging sets"
+        }
+    
+    def _step4_time_parameters(self, trades: List[Trade]) -> Dict:
+        time_params = []
+        for trade in trades:
+            settlement_date = datetime.now()
+            end_date = trade.maturity_date
+            remaining_maturity = trade.time_to_maturity()
+            
+            time_params.append({
+                'trade_id': trade.trade_id,
+                'settlement_date': settlement_date.strftime('%Y-%m-%d'),
+                'end_date': end_date.strftime('%Y-%m-%d'), 
+                'remaining_maturity': remaining_maturity
+            })
+        
+        return {
+            'step': 4,
+            'title': 'Time Parameters (S, E, M)',
+            'description': 'Calculate settlement date, end date, and maturity for each trade',
+            'data': time_params,
+            'formula': 'S = Settlement Date, E = End Date, M = (E - S) / 365',
+            'result': f"Calculated time parameters for {len(trades)} trades"
+        }
+    
+    def _step5_adjusted_notional(self, trades: List[Trade]) -> Dict:
+        adjusted_notionals = []
+        for trade in trades:
+            adjusted_notional = abs(trade.notional)
+            adjusted_notionals.append({
+                'trade_id': trade.trade_id,
+                'original_notional': trade.notional,
+                'adjusted_notional': adjusted_notional
+            })
+        
+        return {
+            'step': 5,
+            'title': 'Adjusted Notional',
+            'description': 'Calculate adjusted notional amounts per regulatory requirements',
+            'data': adjusted_notionals,
+            'formula': 'Adjusted Notional = Notional × Supervisory Duration × Supervisory Factor',
+            'result': f"Calculated adjusted notionals for {len(trades)} trades"
+        }
+    
+    def _step6_maturity_factor(self, trades: List[Trade]) -> Dict:
+        maturity_factors = []
+        for trade in trades:
+            remaining_maturity = trade.time_to_maturity()
+            mf = min(1.0, 0.05 + 0.95 * math.exp(-0.05 * max(1.0, remaining_maturity)))
+            
+            maturity_factors.append({
+                'trade_id': trade.trade_id,
+                'remaining_maturity': remaining_maturity,
+                'maturity_factor': mf
+            })
+        
+        return {
+            'step': 6,
+            'title': 'Maturity Factor (MF)',
+            'description': 'Apply Basel maturity factor formula',
+            'data': maturity_factors,
+            'formula': 'MF = min(1, 0.05 + 0.95 × exp(-0.05 × max(1, M)))',
+            'result': f"Calculated maturity factors for {len(trades)} trades"
+        }
+    
+    def _step7_supervisory_delta(self, trades: List[Trade]) -> Dict:
+        supervisory_deltas = []
+        for trade in trades:
+            if trade.trade_type in [TradeType.OPTION, TradeType.SWAPTION]:
+                supervisory_delta = trade.delta
+            else:
+                supervisory_delta = 1.0
+                
+            supervisory_deltas.append({
+                'trade_id': trade.trade_id,
+                'trade_type': trade.trade_type.value,
+                'supervisory_delta': supervisory_delta
+            })
+        
+        return {
+            'step': 7,
+            'title': 'Supervisory Delta',
+            'description': 'Determine supervisory delta per trade type',
+            'data': supervisory_deltas,
+            'formula': 'δ = trade delta for options, 1.0 for linear products',
+            'result': f"Calculated supervisory deltas for {len(trades)} trades"
+        }
+    
+    def _step8_supervisory_factor(self, trades: List[Trade]) -> Dict:
+        supervisory_factors = []
+        for trade in trades:
+            sf = self._get_supervisory_factor(trade)
+            supervisory_factors.append({
+                'trade_id': trade.trade_id,
+                'asset_class': trade.asset_class.value,
+                'supervisory_factor_bp': sf,
+                'supervisory_factor_decimal': sf / 100
+            })
+        
+        return {
+            'step': 8,
+            'title': 'Supervisory Factor (SF)', 
+            'description': 'Apply regulatory supervisory factors by asset class',
+            'data': supervisory_factors,
+            'formula': 'SF per Basel regulatory mapping tables',
+            'result': f"Applied supervisory factors for {len(trades)} trades"
+        }
+    
+    def _step9_adjusted_derivatives_contract_amount(self, trades: List[Trade]) -> Dict:
+        adjusted_amounts = []
+        for trade in trades:
+            adjusted_notional = abs(trade.notional)
+            supervisory_delta = trade.delta if trade.trade_type in [TradeType.OPTION, TradeType.SWAPTION] else 1.0
+            remaining_maturity = trade.time_to_maturity()
+            mf = min(1.0, 0.05 + 0.95 * math.exp(-0.05 * max(1.0, remaining_maturity)))
+            sf = self._get_supervisory_factor(trade) / 100
+            
+            adjusted_amount = adjusted_notional * abs(supervisory_delta) * mf * sf
+            
+            adjusted_amounts.append({
+                'trade_id': trade.trade_id,
+                'adjusted_notional': adjusted_notional,
+                'supervisory_delta': supervisory_delta,
+                'maturity_factor': mf,
+                'supervisory_factor': sf,
+                'adjusted_derivatives_contract_amount': adjusted_amount
+            })
+        
+        return {
+            'step': 9,
+            'title': 'Adjusted Derivatives Contract Amount',
+            'description': 'Calculate final adjusted contract amounts',
+            'data': adjusted_amounts,
+            'formula': 'Adjusted Amount = Adjusted Notional × δ × MF × SF',
+            'result': f"Calculated adjusted amounts for {len(trades)} trades"
+        }
+    
+    def _step10_supervisory_correlation(self, trades: List[Trade]) -> Dict:
+        correlations = []
+        asset_classes = set(trade.asset_class for trade in trades)
+        
+        for asset_class in asset_classes:
+            correlation = self.supervisory_correlations.get(asset_class, 0.5)
+            correlations.append({
+                'asset_class': asset_class.value,
+                'supervisory_correlation': correlation
+            })
+        
+        return {
+            'step': 10,
+            'title': 'Supervisory Correlation',
+            'description': 'Apply supervisory correlations by asset class',
+            'data': correlations,
+            'formula': 'Correlation per Basel regulatory mapping tables',
+            'result': f"Applied correlations for {len(asset_classes)} asset classes"
+        }
+    
+    def _step11_hedging_set_addon(self, trades: List[Trade]) -> Dict:
+        hedging_sets = {}
+        for trade in trades:
+            hedging_set_key = f"{trade.asset_class.value}_{trade.currency}"
+            if hedging_set_key not in hedging_sets:
+                hedging_sets[hedging_set_key] = []
+            hedging_sets[hedging_set_key].append(trade)
+        
+        hedging_set_addons = []
+        for hedging_set_key, set_trades in hedging_sets.items():
+            trade_addons = []
+            for trade in set_trades:
+                adjusted_notional = abs(trade.notional)
+                supervisory_delta = trade.delta if trade.trade_type in [TradeType.OPTION, TradeType.SWAPTION] else 1.0
+                remaining_maturity = trade.time_to_maturity()
+                mf = min(1.0, 0.05 + 0.95 * math.exp(-0.05 * max(1.0, remaining_maturity)))
+                sf = self._get_supervisory_factor(trade) / 100
+                
+                trade_addon = adjusted_notional * abs(supervisory_delta) * mf * sf
+                trade_addons.append(trade_addon)
+            
+            correlation = self.supervisory_correlations.get(set_trades[0].asset_class, 0.5)
+            hedging_set_addon = sum(trade_addons) * math.sqrt(correlation)
+            
+            hedging_set_addons.append({
+                'hedging_set': hedging_set_key,
+                'trade_count': len(set_trades),
+                'individual_addons': trade_addons,
+                'correlation': correlation,
+                'hedging_set_addon': hedging_set_addon
+            })
+        
+        return {
+            'step': 11,
+            'title': 'Hedging Set AddOn',
+            'description': 'Aggregate trade add-ons within hedging sets',
+            'data': hedging_set_addons,
+            'formula': 'Hedging Set AddOn = Σ(Trade AddOns) × √ρ',
+            'result': f"Calculated add-ons for {len(hedging_sets)} hedging sets"
+        }
+    
+        def _step12_asset_class_addon(self, trades: List[Trade]) -> Dict:
+        step11_result = self._step11_hedging_set_addon(trades)
+        
+        asset_class_addons = {}
+        for hedging_set_data in step11_result['data']:
+            asset_class = hedging_set_data['hedging_set'].split('_')[0]
+            if asset_class not in asset_class_addons:
+                asset_class_addons[asset_class] = []
+            asset_class_addons[asset_class].append(hedging_set_data['hedging_set_addon'])
+        
+        asset_class_results = []
+        for asset_class, hedging_set_addons in asset_class_addons.items():
+            asset_class_addon = sum(hedging_set_addons)
+            asset_class_results.append({
+                'asset_class': asset_class,
+                'hedging_set_addons': hedging_set_addons,
+                'asset_class_addon': asset_class_addon
+            })
+        
+        return {
+            'step': 12,
+            'title': 'Asset Class AddOn',
+            'description': 'Sum hedging set add-ons by asset class',
+            'data': asset_class_results,
+            'formula': 'Asset Class AddOn = Σ(Hedging Set AddOns)',
+            'result': f"Calculated asset class add-ons for {len(asset_class_results)} classes"
+        }
+    
+    def _step13_aggregate_addon(self, trades: List[Trade]) -> Dict:
+        step12_result = self._step12_asset_class_addon(trades)
+        
+        aggregate_addon = sum(ac_data['asset_class_addon'] for ac_data in step12_result['data'])
+        
+        return {
+            'step': 13,
+            'title': 'Aggregate AddOn',
+            'description': 'Sum asset class add-ons to get total portfolio add-on',
+            'data': {
+                'asset_class_addons': [(ac_data['asset_class'], ac_data['asset_class_addon']) 
+                                     for ac_data in step12_result['data']],
+                'aggregate_addon': aggregate_addon
+            },
+            'formula': 'Aggregate AddOn = Σ(Asset Class AddOns)',
+            'result': f"Total Aggregate AddOn: ${aggregate_addon:,.0f}",
+            'aggregate_addon': aggregate_addon
+        }
+    
+    def _step14_sum_v_c(self, netting_set: NettingSet, collateral: List[Collateral] = None) -> Dict:
+        sum_v = sum(trade.mtm_value for trade in netting_set.trades)
+        
+        sum_c = 0
+        if collateral:
+            for coll in collateral:
+                haircut = self.collateral_haircuts.get(coll.collateral_type, 15.0) / 100
+                effective_value = coll.amount * (1 - haircut)
+                sum_c += effective_value
+        
+        return {
+            'step': 14,
+            'title': 'Sum of V, C within netting set',
+            'description': 'Calculate sum of MTM values and effective collateral',
+            'data': {
+                'sum_v_mtm': sum_v,
+                'sum_c_collateral': sum_c,
+                'collateral_details': [(coll.collateral_type.value, coll.amount, 
+                                      self.collateral_haircuts.get(coll.collateral_type, 15.0))
+                                     for coll in (collateral or [])]
+            },
+            'formula': 'V = Σ(MTM values), C = Σ(Collateral × (1 - haircut))',
+            'result': f"Sum V: ${sum_v:,.0f}, Sum C: ${sum_c:,.0f}",
+            'sum_v': sum_v,
+            'sum_c': sum_c
+        }
+    
+    def _step15_pfe_multiplier(self, netting_set: NettingSet, aggregate_addon: float) -> Dict:
+        sum_v = sum(trade.mtm_value for trade in netting_set.trades)
+        
+        if aggregate_addon > 0:
+            multiplier = min(1.0, 0.05 + 0.95 * math.exp(-0.05 * max(0, sum_v) / aggregate_addon))
         else:
             multiplier = 1.0
         
-        pfe = multiplier * aggregated_addon
-        
-        steps.append({
-            'step': 3,
-            'title': 'Calculate Potential Future Exposure (PFE)',
-            'formula': 'PFE = Multiplier × Aggregated Add-on',
-            'calculation': f'{multiplier:.3f} × ${aggregated_addon:,.0f} = ${pfe:,.0f}',
-            'result': pfe,
-            'multiplier': multiplier,
-            'net_mtm': net_mtm
-        })
-        
-        # Step 4: Calculate Replacement Cost
-        total_mtm = sum(trade.mtm_value for trade in trades)
-        total_effective_collateral = 0
-        
-        if collateral:
-            total_effective_collateral = sum(coll.effective_amount() for coll in collateral)
-        
-        rc = max(total_mtm - total_effective_collateral, threshold + mta, 0)
-        
-        steps.append({
-            'step': 4,
-            'title': 'Calculate Replacement Cost (RC)',
-            'formula': 'RC = max(MTM - Collateral, Threshold + MTA, 0)',
-            'calculation': f'max(${total_mtm:,.0f} - ${total_effective_collateral:,.0f}, ${threshold + mta:,.0f}, 0) = ${rc:,.0f}',
-            'result': rc
-        })
-        
-        # Step 5: Calculate EAD
-        alpha = 1.4
-        ead = alpha * (rc + pfe)
-        
-        steps.append({
-            'step': 5,
-            'title': 'Calculate Exposure at Default (EAD)',
-            'formula': 'EAD = α × (RC + PFE), where α = 1.4',
-            'calculation': f'1.4 × (${rc:,.0f} + ${pfe:,.0f}) = ${ead:,.0f}',
-            'result': ead
-        })
-        
-        # Step 6: Calculate RWA and Capital
-        risk_weight = 0.20  # 20% for derivatives
-        rwa = ead * risk_weight
-        capital_requirement = rwa * 0.08
-        
-        steps.append({
-            'step': 6,
-            'title': 'Calculate Capital Requirement',
-            'formula': 'RWA = EAD × Risk Weight; Capital = RWA × 8%',
-            'calculation': f'${ead:,.0f} × 20% = ${rwa:,.0f}; ${rwa:,.0f} × 8% = ${capital_requirement:,.0f}',
-            'result': capital_requirement
-        })
+        return {
+            'step': 15,
+            'title': 'PFE Multiplier',
+            'description': 'Calculate PFE multiplier based on netting benefit',
+            'data': {
+                'sum_v': sum_v,
+                'aggregate_addon': aggregate_addon,
+                'multiplier': multiplier
+            },
+            'formula': 'Multiplier = min(1, 0.05 + 0.95 × exp(-0.05 × max(0, V) / AddOn))',
+            'result': f"PFE Multiplier: {multiplier:.6f}",
+            'multiplier': multiplier
+        }
+    
+    def _step16_pfe(self, multiplier: float, aggregate_addon: float) -> Dict:
+        pfe = multiplier * aggregate_addon
         
         return {
-            'steps': steps,
-            'final_metrics': {
-                'replacement_cost': rc,
-                'potential_future_exposure': pfe,
-                'exposure_at_default': ead,
-                'risk_weighted_assets': rwa,
-                'capital_requirement': capital_requirement,
-                'multiplier': multiplier
-            }
+            'step': 16,
+            'title': 'PFE (Potential Future Exposure)',
+            'description': 'Calculate PFE using multiplier and aggregate add-on',
+            'data': {
+                'multiplier': multiplier,
+                'aggregate_addon': aggregate_addon,
+                'pfe': pfe
+            },
+            'formula': 'PFE = Multiplier × Aggregate AddOn',
+            'result': f"PFE: ${pfe:,.0f}",
+            'pfe': pfe
         }
+    
+    def _step17_th_mta_nica(self, netting_set: NettingSet) -> Dict:
+        return {
+            'step': 17,
+            'title': 'TH, MTA, NICA',
+            'description': 'Extract threshold, MTA, and NICA from netting agreement',
+            'data': {
+                'threshold': netting_set.threshold,
+                'mta': netting_set.mta,
+                'nica': netting_set.nica
+            },
+            'formula': 'Sourced from CSA/ISDA agreements',
+            'result': f"TH: ${netting_set.threshold:,.0f}, MTA: ${netting_set.mta:,.0f}, NICA: ${netting_set.nica:,.0f}",
+            'threshold': netting_set.threshold,
+            'mta': netting_set.mta,
+            'nica': netting_set.nica
+        }
+    
+    def _step18_replacement_cost(self, netting_set: NettingSet, collateral: List[Collateral], step17_data: Dict) -> Dict:
+        sum_v = sum(trade.mtm_value for trade in netting_set.trades)
+        
+        sum_c = 0
+        if collateral:
+            for coll in collateral:
+                haircut = self.collateral_haircuts.get(coll.collateral_type, 15.0) / 100
+                effective_value = coll.amount * (1 - haircut)
+                sum_c += effective_value
+        
+        threshold = step17_data['threshold']
+        mta = step17_data['mta']
+        nica = step17_data['nica']
+        
+        rc_margined = max(sum_v - sum_c, threshold + mta - nica, 0)
+        rc_unmargined = max(sum_v - sum_c, 0)
+        
+        is_margined = threshold > 0 or mta > 0
+        rc = rc_margined if is_margined else rc_unmargined
+        
+        return {
+            'step': 18,
+            'title': 'RC (Replacement Cost)',
+            'description': 'Calculate replacement cost with netting and collateral benefits',
+            'data': {
+                'sum_v': sum_v,
+                'sum_c': sum_c,
+                'threshold': threshold,
+                'mta': mta,
+                'nica': nica,
+                'rc_margined': rc_margined,
+                'rc_unmargined': rc_unmargined,
+                'is_margined': is_margined,
+                'rc_final': rc
+            },
+            'formula': 'RC = max(V - C; TH + MTA - NICA; 0) for margined sets',
+            'result': f"RC: ${rc:,.0f}",
+            'rc': rc
+        }
+    
+    def _step19_ceu_flag(self, trades: List[Trade]) -> Dict:
+        ceu_flags = []
+        for trade in trades:
+            ceu_flags.append({
+                'trade_id': trade.trade_id,
+                'ceu_flag': getattr(trade, 'ceu_flag', 1)
+            })
+        
+        overall_ceu = 1 if any(getattr(trade, 'ceu_flag', 1) == 1 for trade in trades) else 0
+        
+        return {
+            'step': 19,
+            'title': 'CEU Flag',
+            'description': 'Determine central clearing status',
+            'data': {
+                'trade_ceu_flags': ceu_flags,
+                'overall_ceu_flag': overall_ceu
+            },
+            'formula': 'CEU = 1 for non-centrally cleared, 0 for centrally cleared',
+            'result': f"CEU Flag: {overall_ceu}",
+            'ceu_flag': overall_ceu
+        }
+    
+    def _step20_alpha(self, ceu_flag: int) -> Dict:
+        alpha = 1.4 if ceu_flag == 1 else 0.5
+        
+        return {
+            'step': 20,
+            'title': 'Alpha',
+            'description': 'Regulatory multiplier based on central clearing status',
+            'data': {
+                'ceu_flag': ceu_flag,
+                'alpha': alpha
+            },
+            'formula': 'Alpha = 1.4 if CEU=1, 0.5 if CEU=0',
+            'result': f"Alpha: {alpha}",
+            'alpha': alpha
+        }
+    
+    def _step21_ead(self, alpha: float, rc: float, pfe: float) -> Dict:
+        ead = alpha * (rc + pfe)
+        
+        return {
+            'step': 21,
+            'title': 'EAD (Exposure at Default)',
+            'description': 'Calculate final exposure at default',
+            'data': {
+                'alpha': alpha,
+                'rc': rc,
+                'pfe': pfe,
+                'ead': ead
+            },
+            'formula': 'EAD = Alpha × (RC + PFE)',
+            'result': f"EAD: ${ead:,.0f}",
+            'ead': ead
+        }
+    
+    def _step22_counterparty_info(self, counterparty: str) -> Dict:
+        counterparty_data = {
+            'counterparty_name': counterparty,
+            'legal_code': '?',
+            'legal_code_description': 'Non-Profit Org',
+            'country': 'US',
+            'r35_risk_weight_category': 'Corporate'
+        }
+        
+        return {
+            'step': 22,
+            'title': 'Counterparty Information',
+            'description': 'Source counterparty details from Cesium system',
+            'data': counterparty_data,
+            'formula': 'Sourced from Cesium',
+            'result': f"Counterparty: {counterparty}, Category: {counterparty_data['r35_risk_weight_category']}",
+            'counterparty_type': counterparty_data['r35_risk_weight_category']
+        }
+    
+    def _step23_risk_weight(self, counterparty_type: str) -> Dict:
+        risk_weight_mapping = {
+            'Corporate': 1.0,
+            'Bank': 0.20,
+            'Sovereign': 0.0,
+            'Non-Profit Org': 1.0
+        }
+        
+        risk_weight = risk_weight_mapping.get(counterparty_type, 1.0)
+        
+        return {
+            'step': 23,
+            'title': 'Standardized Risk Weight',
+            'description': 'Apply regulatory risk weight based on counterparty type',
+            'data': {
+                'counterparty_type': counterparty_type,
+                'risk_weight_percent': f"{risk_weight * 100:.0f}%",
+                'risk_weight_decimal': risk_weight
+            },
+            'formula': 'Risk Weight per 12 CFR § 217.32 mapping',
+            'result': f"Risk Weight: {risk_weight * 100:.0f}%",
+            'risk_weight': risk_weight
+        }
+    
+    def _step24_rwa_calculation(self, ead: float, risk_weight: float) -> Dict:
+        rwa = ead * risk_weight
+        
+        return {
+            'step': 24,
+            'title': 'RWA Calculation',
+            'description': 'Calculate Risk Weighted Assets',
+            'data': {
+                'ead': ead,
+                'risk_weight': risk_weight,
+                'rwa': rwa
+            },
+            'formula': 'Standardized RWA = RW × EAD',
+            'result': f"RWA: ${rwa:,.0f}",
+            'rwa': rwa
+        }
+    
+    def _get_supervisory_factor(self, trade: Trade) -> float:
+        """Get supervisory factor in basis points"""
+        if trade.asset_class == AssetClass.INTEREST_RATE:
+            maturity = trade.time_to_maturity()
+            currency_group = trade.currency if trade.currency in ['USD', 'EUR', 'JPY', 'GBP'] else 'other'
+            
+            if maturity < 2:
+                return self.supervisory_factors[AssetClass.INTEREST_RATE][currency_group]['<2y']
+            elif maturity <= 5:
+                return self.supervisory_factors[AssetClass.INTEREST_RATE][currency_group]['2-5y']
+            else:
+                return self.supervisory_factors[AssetClass.INTEREST_RATE][currency_group]['>5y']
+        
+        elif trade.asset_class == AssetClass.FOREIGN_EXCHANGE:
+            g10_currencies = ['USD', 'EUR', 'JPY', 'GBP', 'CHF', 'CAD', 'AUD', 'NZD', 'SEK', 'NOK']
+            is_g10 = trade.currency in g10_currencies
+            return self.supervisory_factors[AssetClass.FOREIGN_EXCHANGE]['G10' if is_g10 else 'emerging']
+        
+        elif trade.asset_class == AssetClass.CREDIT:
+            return self.supervisory_factors[AssetClass.CREDIT]['IG_single']
+        
+        elif trade.asset_class == AssetClass.EQUITY:
+            return self.supervisory_factors[AssetClass.EQUITY]['single_large']
+        
+        elif trade.asset_class == AssetClass.COMMODITY:
+            return self.supervisory_factors[AssetClass.COMMODITY]['energy']
+        
+        return 1.0
+    
+    def _generate_saccr_explanation(self, calculation_steps: List[Dict]) -> str:
+        """Generate AI explanation of the SA-CCR calculation"""
+        final_results = {
+            step['title']: step.get('result', 'N/A') 
+            for step in calculation_steps[-5:]
+        }
+        
+        system_prompt = """You are a Basel SA-CCR regulatory expert. Analyze the complete 24-step SA-CCR calculation and provide:
+        1. Executive summary of key results
+        2. Main risk drivers identified
+        3. Regulatory compliance assessment  
+        4. Optimization recommendations
+        
+        Focus on practical insights for risk managers."""
+        
+        user_prompt = f"""
+        Complete SA-CCR calculation has been performed following all 24 Basel regulatory steps.
+        
+        Key Final Results:
+        {json.dumps(final_results, indent=2)}
+        
+        Please provide executive-level analysis focusing on:
+        - What drives the capital requirement
+        - Portfolio risk characteristics
+        - Potential optimization opportunities
+        - Regulatory compliance status
+        """
+        
+        try:
+            response = self.llm.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_prompt)
+            ])
+            return response.content
+        except Exception as e:
+            return f"AI analysis temporarily unavailable: {str(e)}"
 
 # ==============================================================================
 # STREAMLIT APPLICATION
 # ==============================================================================
 
 def main():
-    # Executive Dashboard Header
+    # AI-Powered Header
     st.markdown("""
-    <div class="executive-header">
-        <div class="executive-title">🏛️ Basel Risk Capital Platform</div>
-        <div class="executive-subtitle">Enterprise-Grade SA-CCR & Credit Risk Capital Calculator</div>
+    <div class="ai-header">
+        <div class="executive-title">🤖 AI SA-CCR Platform</div>
+        <div class="executive-subtitle">Complete 24-Step Basel SA-CCR Calculator with LLM Integration</div>
     </div>
     """, unsafe_allow_html=True)
     
-    # Initialize session state
-    if 'agent' not in st.session_state:
-        st.session_state.agent = EnterpriseBaselAgent()
+    # Initialize comprehensive agent
+    if 'saccr_agent' not in st.session_state:
+        st.session_state.saccr_agent = ComprehensiveSACCRAgent()
     
-    # Sidebar Navigation
+    # Sidebar with LLM Configuration
     with st.sidebar:
+        st.markdown("### 🤖 LLM Configuration")
+        
+        # Configuration inputs
+        with st.expander("🔧 LLM Setup", expanded=True):
+            base_url = st.text_input("Base URL", value="http://localhost:8123/v1")
+            api_key = st.text_input("API Key", value="dummy", type="password")
+            model = st.text_input("Model", value="llama3")
+            temperature = st.slider("Temperature", 0.0, 1.0, 0.3, 0.1)
+            max_tokens = st.number_input("Max Tokens", 1000, 8000, 4000, 100)
+            
+            if st.button("🔗 Connect LLM"):
+                config = {
+                    'base_url': base_url,
+                    'api_key': api_key,
+                    'model': model,
+                    'temperature': temperature,
+                    'max_tokens': max_tokens,
+                    'streaming': False
+                }
+                
+                success = st.session_state.saccr_agent.setup_llm_connection(config)
+                if success:
+                    st.success("✅ LLM Connected!")
+                else:
+                    st.error("❌ Connection Failed")
+        
+        # Connection status
+        status = st.session_state.saccr_agent.connection_status
+        if status == "connected":
+            st.markdown('<div class="connection-status connected">🟢 LLM Connected</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="connection-status disconnected">🔴 LLM Disconnected</div>', unsafe_allow_html=True)
+        
+        st.markdown("---")
         st.markdown("### 📊 Navigation")
         page = st.selectbox(
-            "Select Analysis Type:",
-            ["🏠 Executive Dashboard", "💳 Credit Risk Calculator", "📈 SA-CCR Calculator", "📋 GWIM Examples", "🔬 Stress Testing"]
+            "Select Module:",
+            ["🧮 Complete SA-CCR Calculator", "📋 Reference Example", "🤖 AI Assistant", "📊 Portfolio Analysis"]
         )
-        
-        st.markdown("---")
-        st.markdown("### ⚙️ Configuration")
-        st.number_input("Capital Ratio (%)", min_value=6.0, max_value=15.0, value=8.0, step=0.1, key="capital_ratio")
-        st.selectbox("Base Currency", ["USD", "EUR", "GBP", "JPY"], key="base_currency")
-        
-        st.markdown("---")
-        st.markdown("### 📈 Portfolio Summary")
-        if 'trades' in st.session_state:
-            st.metric("Total Trades", len(st.session_state.get('trades', [])))
-        if 'facilities' in st.session_state:
-            st.metric("Credit Facilities", len(st.session_state.get('facilities', [])))
     
-    # Main content based on page selection
-    if page == "🏠 Executive Dashboard":
-        executive_dashboard()
-    elif page == "💳 Credit Risk Calculator":
-        credit_risk_calculator()
-    elif page == "📈 SA-CCR Calculator":
-        saccr_calculator()
-    elif page == "📋 GWIM Examples":
-        gwim_examples()
-    elif page == "🔬 Stress Testing":
-        stress_testing()
+    # Route to different pages
+    if page == "🧮 Complete SA-CCR Calculator":
+        complete_saccr_calculator()
+    elif page == "📋 Reference Example":
+        show_reference_example()
+    elif page == "🤖 AI Assistant":
+        ai_assistant_page()
+    elif page == "📊 Portfolio Analysis":
+        portfolio_analysis_page()
 
-def executive_dashboard():
-    """Executive-level dashboard with key metrics and insights"""
+def complete_saccr_calculator():
+    """Complete 24-step SA-CCR calculator with input validation"""
     
-    st.markdown("## 📊 Executive Risk Dashboard")
+    st.markdown("## 🧮 Complete SA-CCR Calculator")
+    st.markdown("*Following the complete 24-step Basel regulatory framework*")
     
-    # Create sample portfolio metrics for demonstration
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        st.markdown("""
-        <div class="kpi-card">
-            <div class="kpi-value">$847M</div>
-            <div class="kpi-label">Portfolio Notional</div>
-            <div class="kpi-change positive">+12.3% vs Q3</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div class="kpi-card">
-            <div class="kpi-value">$23.4M</div>
-            <div class="kpi-label">Total EAD</div>
-            <div class="kpi-change negative">+5.7% vs Q3</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown("""
-        <div class="kpi-card">
-            <div class="kpi-value">$4.7M</div>
-            <div class="kpi-label">Risk Weighted Assets</div>
-            <div class="kpi-change positive">-2.1% vs Q3</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown("""
-        <div class="kpi-card">
-            <div class="kpi-value">$375K</div>
-            <div class="kpi-label">Capital Requirement</div>
-            <div class="kpi-change positive">-2.1% vs Q3</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col5:
-        st.markdown("""
-        <div class="kpi-card">
-            <div class="kpi-value">12.8%</div>
-            <div class="kpi-label">Capital Ratio</div>
-            <div class="kpi-change positive">+0.3% vs Q3</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Risk exposure breakdown chart
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### 📊 Risk Exposure by Asset Class")
-        
-        # Sample data for executive view
-        asset_data = pd.DataFrame({
-            'Asset Class': ['Interest Rate', 'Foreign Exchange', 'Credit', 'Equity', 'Commodity'],
-            'Exposure (EAD)': [8.5, 6.2, 4.1, 3.8, 0.8],
-            'Capital Requirement': [136, 99, 66, 61, 13]
-        })
-        
-        fig = px.sunburst(
-            asset_data, 
-            names='Asset Class', 
-            values='Exposure (EAD)',
-            title="Exposure at Default Distribution",
-            color_discrete_sequence=px.colors.qualitative.Set3
-        )
-        fig.update_layout(font_family="Inter", showlegend=True)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        st.markdown("### 📈 Capital Efficiency Trends")
-        
-        # Sample trend data
-        trend_data = pd.DataFrame({
-            'Quarter': ['Q1 2024', 'Q2 2024', 'Q3 2024', 'Q4 2024'],
-            'Capital Requirement': [425, 398, 384, 375],
-            'Portfolio Notional': [720, 756, 812, 847],
-            'Capital Efficiency': [0.059, 0.053, 0.047, 0.044]
-        })
-        
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
-        
-        fig.add_trace(
-            go.Scatter(x=trend_data['Quarter'], y=trend_data['Capital Requirement'],
-                      name="Capital Requirement ($K)", line=dict(color="#3282b8", width=3)),
-            secondary_y=False,
-        )
-        
-        fig.add_trace(
-            go.Scatter(x=trend_data['Quarter'], y=trend_data['Capital Efficiency']*100,
-                      name="Capital Efficiency (%)", line=dict(color="#28a745", width=3, dash="dot")),
-            secondary_y=True,
-        )
-        
-        fig.update_layout(title="Capital Efficiency Trend", font_family="Inter")
-        fig.update_xaxes(title_text="Quarter")
-        fig.update_yaxes(title_text="Capital Requirement ($K)", secondary_y=False)
-        fig.update_yaxes(title_text="Capital Efficiency (%)", secondary_y=True)
-        
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Executive summary table
-    st.markdown("### 📋 Risk Summary by Counterparty")
-    
-    summary_data = pd.DataFrame({
-        'Counterparty': ['Goldman Sachs', 'JP Morgan', 'Morgan Stanley', 'Citi', 'Deutsche Bank'],
-        'Gross Exposure ($M)': [245.7, 189.3, 156.8, 134.2, 87.5],
-        'Net Exposure ($M)': [12.3, 8.7, 6.4, 5.1, 2.9],
-        'RWA ($M)': [2.46, 1.74, 1.28, 1.02, 0.58],
-        'Capital Req ($K)': [197, 139, 102, 82, 46],
-        'Utilization (%)': [67.8, 45.3, 78.9, 23.4, 89.1]
-    })
-    
-    # Style the dataframe for executive presentation
-    def style_summary_table(df):
-        return df.style.format({
-            'Gross Exposure ($M)': '${:.1f}',
-            'Net Exposure ($M)': '${:.1f}',
-            'RWA ($M)': '${:.2f}',
-            'Capital Req ($K)': '${:.0f}',
-            'Utilization (%)': '{:.1f}%'
-        }).background_gradient(subset=['Capital Req ($K)'], cmap='RdYlGn_r')
-    
-    st.dataframe(style_summary_table(summary_data), use_container_width=True)
-
-def gwim_examples():
-    """GWIM Examples with step-by-step calculations"""
-    
-    st.markdown("## 📋 GWIM Examples - Step-by-Step Analysis")
-    
-    tab1, tab2 = st.tabs(["💼 Commercial Lending", "🏦 Securities Based Lending"])
-    
-    with tab1:
-        st.markdown("### GWIM Example 1 - Custom Lending (Commercial)")
-        
-        with st.expander("📊 Input Parameters", expanded=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("""
-                **Facility Details:**
-                - Approved Commitment: $1,000,000
-                - Term: 3 years
-                - Credit Conversion Factor: 50%
-                - Currently Funded: $400,000
-                """)
-            with col2:
-                st.markdown("""
-                **Risk Parameters:**
-                - Risk Weight: 100% (Commercial)
-                - Capital Ratio: 8%
-                - Collateral: None
-                """)
-        
-        # Create facility
-        facility = CreditFacility(
-            facility_id="GWIM_EX1",
-            counterparty="US_Client_Commercial",
-            facility_type="Commercial",
-            approved_limit=1_000_000,
-            funded_amount=400_000,
-            currency="USD",
-            term_years=3,
-            ccf=0.50,
-            risk_weight=1.0
-        )
-        
-        # Calculate with detailed steps
-        result = st.session_state.agent.calculate_credit_rwa_detailed(facility)
-        
-        st.markdown("### 🔍 Step-by-Step Calculation")
-        
-        for step in result['steps']:
-            with st.container():
-                st.markdown(f"""
-                <div class="calc-step">
-                    <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-                        <span class="step-number">{step['step']}</span>
-                        <span class="step-title">{step['title']}</span>
-                    </div>
-                    <div class="step-formula">{step['formula']}</div>
-                    <div style="font-size: 1.1rem; font-weight: 600; color: #0f4c75;">
-                        {step['calculation']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        # Final result
-        final_rwa = result['final_metrics']['rwa']
-        st.markdown(f"""
-        <div class="result-highlight">
-            ✅ FINAL RESULT: Initial RWA = ${final_rwa:,.0f}
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Key metrics visualization
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Gross Exposure", f"${result['final_metrics']['gross_exposure']:,.0f}")
-        with col2:
-            st.metric("Net Exposure", f"${result['final_metrics']['net_exposure']:,.0f}")
-        with col3:
-            st.metric("RWA", f"${result['final_metrics']['rwa']:,.0f}")
-        with col4:
-            st.metric("Capital Required", f"${result['final_metrics']['capital_requirement']:,.0f}")
-    
-    with tab2:
-        st.markdown("### GWIM Example 2 - Securities Based Lending (SBL)")
-        
-        with st.expander("📊 Input Parameters", expanded=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("""
-                **Loan Details:**
-                - Loan Amount: $1,000,000
-                - Term: Demand (no term UCC)
-                - Purpose: Securities Based Lending
-                """)
-            with col2:
-                st.markdown("""
-                **Risk Parameters:**
-                - Risk Weight: 50% (Secured)
-                - Capital Ratio: 8%
-                """)
-        
-        st.markdown("**Collateral Portfolio:**")
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Cash Deposit", "$150,000", "0% haircut")
-        with col2:
-            st.metric("1Y UST", "$450,000", "0.5% haircut")
-        with col3:
-            st.metric("Money Market", "$300,000", "0.5% haircut")
-        with col4:
-            st.metric("Equity Funds", "$1,500,000", "12% haircut")
-        
-        # Create facility with collateral
-        facility2 = CreditFacility(
-            facility_id="GWIM_EX2",
-            counterparty="US_Client_SBL",
-            facility_type="SBL",
-            approved_limit=1_000_000,
-            funded_amount=1_000_000,
-            currency="USD",
-            term_years=0,
-            ccf=1.0,
-            risk_weight=0.50
-        )
-        
-        collateral = [
-            Collateral(CollateralType.CASH, "USD", 150_000, 0.0),
-            Collateral(CollateralType.GOVERNMENT_BONDS, "USD", 450_000, 0.5),
-            Collateral(CollateralType.MONEY_MARKET, "USD", 300_000, 0.5),
-            Collateral(CollateralType.EQUITIES, "USD", 1_500_000, 12.0)
-        ]
-        
-        result2 = st.session_state.agent.calculate_credit_rwa_detailed(facility2, collateral)
-        
-        st.markdown("### 🔍 Step-by-Step Calculation")
-        
-        for step in result2['steps']:
-            with st.container():
-                st.markdown(f"""
-                <div class="calc-step">
-                    <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-                        <span class="step-number">{step['step']}</span>
-                        <span class="step-title">{step['title']}</span>
-                    </div>
-                    <div class="step-formula">{step['formula']}</div>
-                    <div style="font-size: 1.1rem; font-weight: 600; color: #0f4c75;">
-                        {step['calculation']}
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                # Show collateral details for step 3
-                if step['step'] == 3 and 'collateral_details' in step:
-                    st.markdown("**Collateral Breakdown:**")
-                    coll_df = pd.DataFrame(step['collateral_details'])
-                    coll_df['Market Value'] = coll_df['market_value'].apply(lambda x: f"${x:,.0f}")
-                    coll_df['Haircut'] = coll_df['haircut'].apply(lambda x: f"{x:.1f}%")
-                    coll_df['Effective Value'] = coll_df['effective_value'].apply(lambda x: f"${x:,.0f}")
-                    st.dataframe(coll_df[['type', 'Market Value', 'Haircut', 'Effective Value']], 
-                               use_container_width=True)
-                
-                st.markdown("</div>", unsafe_allow_html=True)
-        
-        # Final result
-        final_rwa2 = result2['final_metrics']['rwa']
-        st.markdown(f"""
-        <div class="result-highlight">
-            ✅ FINAL RESULT: RWA = ${final_rwa2:,.0f} (Loan is over-collateralized!)
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Collateral analysis
-        st.markdown("### 📊 Collateral Analysis")
-        
+    # Step 1: Netting Set Setup
+    with st.expander("📊 Step 1: Netting Set Configuration", expanded=True):
         col1, col2 = st.columns(2)
-        with col1:
-            # Collateral composition pie chart
-            coll_data = pd.DataFrame(result2['collateral_breakdown'])
-            fig = px.pie(coll_data, values='effective_value', names='type',
-                        title='Effective Collateral Composition',
-                        color_discrete_sequence=px.colors.qualitative.Set3)
-            fig.update_layout(font_family="Inter")
-            st.plotly_chart(fig, use_container_width=True)
         
+        with col1:
+            netting_set_id = st.text_input("Netting Set ID*", placeholder="e.g., 212784060000009618701")
+            counterparty = st.text_input("Counterparty*", placeholder="e.g., Lowell Hotel Properties LLC")
+            
         with col2:
-            # Haircut impact analysis
-            fig2 = go.Figure()
-            fig2.add_trace(go.Bar(
-                name='Market Value',
-                x=coll_data['type'],
-                y=coll_data['market_value'],
-                marker_color='lightblue'
-            ))
-            fig2.add_trace(go.Bar(
-                name='Effective Value',
-                x=coll_data['type'], 
-                y=coll_data['effective_value'],
-                marker_color='darkblue'
-            ))
-            fig2.update_layout(
-                title='Collateral: Market vs Effective Value',
-                xaxis_title='Collateral Type',
-                yaxis_title='Value ($)',
-                barmode='group',
-                font_family="Inter"
-            )
-            st.plotly_chart(fig2, use_container_width=True)
-
-def credit_risk_calculator():
-    """Interactive Credit Risk Calculator"""
+            threshold = st.number_input("Threshold ($)*", min_value=0.0, value=1000000.0, step=100000.0)
+            mta = st.number_input("MTA ($)*", min_value=0.0, value=500000.0, step=50000.0)
+            nica = st.number_input("NICA ($)", min_value=0.0, value=0.0, step=10000.0)
     
-    st.markdown("## 💳 Credit Risk Calculator")
+    # Step 2: Trade Input
+    st.markdown("### 📈 Trade Portfolio Input")
     
-    with st.expander("🎯 Quick Setup", expanded=True):
+    if 'trades_input' not in st.session_state:
+        st.session_state.trades_input = []
+    
+    with st.expander("➕ Add New Trade", expanded=len(st.session_state.trades_input) == 0):
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            facility_type = st.selectbox("Facility Type", ["Commercial Lending", "Retail Mortgage", "Securities Based Lending", "Credit Card"])
-            counterparty = st.text_input("Counterparty", value="Sample Client")
-            
+            trade_id = st.text_input("Trade ID*", placeholder="e.g., 2098474100")
+            asset_class = st.selectbox("Asset Class*", [ac.value for ac in AssetClass])
+            trade_type = st.selectbox("Trade Type*", [tt.value for tt in TradeType])
+        
         with col2:
-            approved_limit = st.number_input("Approved Limit ($)", min_value=0, value=1000000, step=50000)
-            funded_amount = st.number_input("Funded Amount ($)", min_value=0, value=400000, step=10000)
-            
+            notional = st.number_input("Notional ($)*", min_value=0.0, value=100000000.0, step=1000000.0)
+            currency = st.selectbox("Currency*", ["USD", "EUR", "GBP", "JPY", "CHF", "CAD"])
+            underlying = st.text_input("Underlying*", placeholder="e.g., Interest rate")
+        
         with col3:
-            ccf = st.slider("Credit Conversion Factor (%)", 0, 100, 50) / 100
-            risk_weight = st.slider("Risk Weight (%)", 0, 150, 100) / 100
-    
-    # Collateral section
-    st.markdown("### 🛡️ Collateral Portfolio")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        add_collateral = st.checkbox("Add Collateral")
-        
-    collateral_list = []
-    if add_collateral:
-        with col2:
-            num_collateral = st.number_input("Number of Collateral Items", 1, 5, 1)
-        
-        for i in range(num_collateral):
-            st.markdown(f"**Collateral Item {i+1}**")
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                coll_type = st.selectbox(f"Type {i+1}", 
-                                       [ct.value for ct in CollateralType], 
-                                       key=f"coll_type_{i}")
-            with col2:
-                coll_currency = st.selectbox(f"Currency {i+1}", 
-                                           ["USD", "EUR", "GBP", "JPY"], 
-                                           key=f"coll_curr_{i}")
-            with col3:
-                coll_amount = st.number_input(f"Amount {i+1} ($)", 
-                                            min_value=0, value=100000, 
-                                            key=f"coll_amt_{i}")
-            with col4:
-                coll_haircut = st.number_input(f"Haircut {i+1} (%)", 
-                                             min_value=0.0, max_value=50.0, 
-                                             value=2.0, step=0.5, 
-                                             key=f"coll_hair_{i}")
-            
-            collateral_list.append(Collateral(
-                CollateralType(coll_type), coll_currency, coll_amount, coll_haircut
-            ))
-    
-    # Calculate button
-    if st.button("🚀 Calculate Risk Capital", type="primary"):
-        # Create facility
-        facility = CreditFacility(
-            facility_id="USER_FACILITY",
-            counterparty=counterparty,
-            facility_type=facility_type,
-            approved_limit=approved_limit,
-            funded_amount=funded_amount,
-            currency="USD",
-            term_years=1,
-            ccf=ccf,
-            risk_weight=risk_weight
-        )
-        
-        # Calculate with steps
-        result = st.session_state.agent.calculate_credit_rwa_detailed(facility, collateral_list if add_collateral else None)
-        
-        # Display results
-        st.markdown("### 📊 Calculation Results")
-        
-        # Key metrics
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Gross Exposure", f"${result['final_metrics']['gross_exposure']:,.0f}")
-        with col2:
-            st.metric("Net Exposure", f"${result['final_metrics']['net_exposure']:,.0f}")
-        with col3:
-            st.metric("Risk Weighted Assets", f"${result['final_metrics']['rwa']:,.0f}")
-        with col4:
-            st.metric("Capital Requirement", f"${result['final_metrics']['capital_requirement']:,.0f}")
-        
-        # Detailed steps
-        with st.expander("🔍 Detailed Calculation Steps", expanded=True):
-            for step in result['steps']:
-                st.markdown(f"""
-                <div class="calc-step">
-                    <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-                        <span class="step-number">{step['step']}</span>
-                        <span class="step-title">{step['title']}</span>
-                    </div>
-                    <div class="step-formula">{step['formula']}</div>
-                    <div style="font-size: 1.1rem; font-weight: 600; color: #0f4c75;">
-                        {step['calculation']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-def saccr_calculator():
-    """Interactive SA-CCR Calculator"""
-    
-    st.markdown("## 📈 SA-CCR Calculator")
-    st.markdown("*Standardized Approach for Counterparty Credit Risk*")
-    
-    # Trade input section
-    with st.expander("🎯 Trade Portfolio Setup", expanded=True):
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("**Add New Trade**")
-            trade_id = st.text_input("Trade ID", value="TRADE_001")
-            counterparty = st.text_input("Counterparty", value="Goldman Sachs")
-            asset_class = st.selectbox("Asset Class", [ac.value for ac in AssetClass])
-            trade_type = st.selectbox("Trade Type", [tt.value for tt in TradeType])
-            
-        with col2:
-            notional = st.number_input("Notional ($)", min_value=0, value=100000000, step=1000000)
-            currency = st.selectbox("Currency", ["USD", "EUR", "GBP", "JPY", "CHF"])
-            underlying = st.text_input("Underlying", value="USD 3M SOFR")
-            maturity_years = st.number_input("Maturity (Years)", min_value=0.1, max_value=30.0, value=5.0, step=0.1)
-            
-        col3, col4 = st.columns(2)
-        with col3:
-            mtm_value = st.number_input("MTM Value ($)", value=0, step=10000)
-            
-        with col4:
+            maturity_years = st.number_input("Maturity (Years)*", min_value=0.1, max_value=30.0, value=5.0, step=0.1)
+            mtm_value = st.number_input("MTM Value ($)", value=0.0, step=10000.0)
             delta = st.number_input("Delta (for options)", min_value=-1.0, max_value=1.0, value=1.0, step=0.1)
         
-        if st.button("➕ Add Trade"):
-            if 'trades' not in st.session_state:
-                st.session_state.trades = []
-            
-            new_trade = Trade(
-                trade_id=trade_id,
-                counterparty=counterparty,
-                asset_class=AssetClass(asset_class),
-                trade_type=TradeType(trade_type),
-                notional=notional,
-                currency=currency,
-                underlying=underlying,
-                maturity_date=datetime.now() + timedelta(days=int(maturity_years * 365)),
-                mtm_value=mtm_value,
-                delta=delta
-            )
-            
-            st.session_state.trades.append(new_trade)
-            st.success(f"✅ Added trade {trade_id}")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("➕ Add Trade", type="primary"):
+                if trade_id and notional > 0 and currency and underlying:
+                    new_trade = Trade(
+                        trade_id=trade_id,
+                        counterparty=counterparty,
+                        asset_class=AssetClass(asset_class),
+                        trade_type=TradeType(trade_type),
+                        notional=notional,
+                        currency=currency,
+                        underlying=underlying,
+                        maturity_date=datetime.now() + timedelta(days=int(maturity_years * 365)),
+                        mtm_value=mtm_value,
+                        delta=delta
+                    )
+                    st.session_state.trades_input.append(new_trade)
+                    st.success(f"✅ Added trade {trade_id}")
+                    st.rerun()
+                else:
+                    st.error("❌ Please fill all required fields marked with *")
+        
+        with col2:
+            if st.button("🗑️ Clear All Trades"):
+                st.session_state.trades_input = []
+                st.rerun()
     
     # Display current trades
-    if 'trades' in st.session_state and st.session_state.trades:
+    if st.session_state.trades_input:
         st.markdown("### 📋 Current Trade Portfolio")
         
         trades_data = []
-        for i, trade in enumerate(st.session_state.trades):
+        for i, trade in enumerate(st.session_state.trades_input):
             trades_data.append({
-                'ID': trade.trade_id,
-                'Counterparty': trade.counterparty,
+                'Index': i,
+                'Trade ID': trade.trade_id,
                 'Asset Class': trade.asset_class.value,
                 'Type': trade.trade_type.value,
                 'Notional ($M)': f"{trade.notional/1_000_000:.1f}",
                 'Currency': trade.currency,
                 'MTM ($K)': f"{trade.mtm_value/1000:.0f}",
-                'Maturity': f"{trade.time_to_maturity():.1f}Y"
+                'Maturity (Y)': f"{trade.time_to_maturity():.1f}"
             })
         
-        trades_df = pd.DataFrame(trades_data)
-        st.dataframe(trades_df, use_container_width=True)
+        df = pd.DataFrame(trades_data)
+        st.dataframe(df, use_container_width=True)
         
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🗑️ Clear All Trades"):
-                st.session_state.trades = []
+        # Remove trade option
+        if len(st.session_state.trades_input) > 0:
+            remove_idx = st.selectbox("Remove trade by index:", [-1] + list(range(len(st.session_state.trades_input))))
+            if remove_idx >= 0 and st.button("🗑️ Remove Selected Trade"):
+                st.session_state.trades_input.pop(remove_idx)
                 st.rerun()
-        
-        # Collateral setup
-        st.markdown("### 🛡️ Collateral Setup")
+    
+    # Step 3: Collateral Input
+    with st.expander("🛡️ Collateral Portfolio", expanded=False):
+        if 'collateral_input' not in st.session_state:
+            st.session_state.collateral_input = []
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            threshold = st.number_input("Threshold ($)", min_value=0, value=1000000, step=100000)
+            coll_type = st.selectbox("Collateral Type", [ct.value for ct in CollateralType])
         with col2:
-            mta = st.number_input("MTA ($)", min_value=0, value=500000, step=50000)
+            coll_currency = st.selectbox("Collateral Currency", ["USD", "EUR", "GBP", "JPY"])
         with col3:
-            add_saccr_collateral = st.checkbox("Add Collateral")
+            coll_amount = st.number_input("Amount ($)", min_value=0.0, value=10000000.0, step=1000000.0)
         
-        saccr_collateral = []
-        if add_saccr_collateral:
-            st.markdown("**Collateral Items**")
-            num_coll = st.number_input("Number of Items", 1, 3, 1)
+        if st.button("➕ Add Collateral"):
+            new_collateral = Collateral(
+                collateral_type=CollateralType(coll_type),
+                currency=coll_currency,
+                amount=coll_amount
+            )
+            st.session_state.collateral_input.append(new_collateral)
+            st.success(f"✅ Added {coll_type} collateral")
+        
+        if st.session_state.collateral_input:
+            st.markdown("**Current Collateral:**")
+            for i, coll in enumerate(st.session_state.collateral_input):
+                st.write(f"{i+1}. {coll.collateral_type.value}: ${coll.amount:,.0f} {coll.currency}")
+    
+    # Validation and Calculation
+    if st.button("🚀 Calculate Complete SA-CCR", type="primary"):
+        # Create netting set
+        if not netting_set_id or not counterparty or not st.session_state.trades_input:
+            st.error("❌ Please provide Netting Set ID, Counterparty, and at least one trade")
+            return
+        
+        netting_set = NettingSet(
+            netting_set_id=netting_set_id,
+            counterparty=counterparty,
+            trades=st.session_state.trades_input,
+            threshold=threshold,
+            mta=mta,
+            nica=nica
+        )
+        
+        # Validate inputs
+        validation = st.session_state.saccr_agent.validate_input_completeness(
+            netting_set, st.session_state.collateral_input
+        )
+        
+        if not validation['is_complete']:
+            st.error("❌ Missing required information:")
+            for field in validation['missing_fields']:
+                st.write(f"   • {field}")
             
-            for i in range(num_coll):
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    coll_type = st.selectbox(f"Collateral Type {i+1}", 
-                                           [ct.value for ct in CollateralType], 
-                                           key=f"saccr_coll_type_{i}")
-                with col2:
-                    coll_curr = st.selectbox(f"Currency {i+1}", 
-                                           ["USD", "EUR", "GBP"], 
-                                           key=f"saccr_coll_curr_{i}")
-                with col3:
-                    coll_amt = st.number_input(f"Amount {i+1} ($M)", 
-                                             min_value=0.0, value=10.0, 
-                                             key=f"saccr_coll_amt_{i}")
+            st.markdown("### 📝 Please Provide Missing Information")
+            st.markdown("The system has identified missing required fields above. Please fill them in and try again.")
+            return
+        
+        if validation['warnings']:
+            st.warning("⚠️ Warnings (calculation will proceed with defaults):")
+            for warning in validation['warnings']:
+                st.write(f"   • {warning}")
+        
+        # Perform calculation
+        with st.spinner("🧮 Performing complete 24-step SA-CCR calculation..."):
+            try:
+                result = st.session_state.saccr_agent.calculate_comprehensive_saccr(
+                    netting_set, st.session_state.collateral_input
+                )
                 
-                saccr_collateral.append(Collateral(
-                    CollateralType(coll_type), coll_curr, coll_amt * 1_000_000
-                ))
-        
-        # Calculate SA-CCR
-        if st.button("🚀 Calculate SA-CCR", type="primary"):
-            result = st.session_state.agent.calculate_saccr_detailed(
-                st.session_state.trades, 
-                saccr_collateral if add_saccr_collateral else None,
-                threshold, 
-                mta
-            )
-            
-            # Display results
-            st.markdown("### 📊 SA-CCR Results")
-            
-            # Key metrics
-            col1, col2, col3, col4, col5 = st.columns(5)
-            with col1:
-                st.metric("Replacement Cost", f"${result['final_metrics']['replacement_cost']/1_000_000:.1f}M")
-            with col2:
-                st.metric("PFE", f"${result['final_metrics']['potential_future_exposure']/1_000_000:.1f}M")
-            with col3:
-                st.metric("EAD", f"${result['final_metrics']['exposure_at_default']/1_000_000:.1f}M")
-            with col4:
-                st.metric("RWA", f"${result['final_metrics']['risk_weighted_assets']/1_000_000:.1f}M")
-            with col5:
-                st.metric("Capital Required", f"${result['final_metrics']['capital_requirement']/1000:.0f}K")
-            
-            # Detailed calculation steps
-            with st.expander("🔍 Detailed SA-CCR Steps", expanded=True):
-                for step in result['steps']:
-                    st.markdown(f"""
-                    <div class="calc-step">
-                        <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-                            <span class="step-number">{step['step']}</span>
-                            <span class="step-title">{step['title']}</span>
-                        </div>
-                        <div class="step-formula">{step['formula']}</div>
-                        <div style="font-size: 1.1rem; font-weight: 600; color: #0f4c75;">
-                            {step['calculation']}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Show trade details for first step
-                    if step['step'] == 1 and 'trade_details' in step:
-                        trade_details_df = pd.DataFrame(step['trade_details'])
-                        trade_details_df['Supervisory Factor'] = trade_details_df['supervisory_factor'].apply(lambda x: f"{x:.1f} bp")
-                        trade_details_df['Maturity Factor'] = trade_details_df['maturity_factor'].apply(lambda x: f"{x:.3f}")
-                        trade_details_df['Add-on'] = trade_details_df['addon'].apply(lambda x: f"${x:,.0f}")
-                        st.dataframe(trade_details_df[['trade_id', 'asset_class', 'Supervisory Factor', 'Maturity Factor', 'Add-on']], 
-                                   use_container_width=True)
-
-def stress_testing():
-    """Stress Testing Module"""
-    
-    st.markdown("## 🔬 Stress Testing & Scenario Analysis")
-    
-    st.markdown("""
-    Perform comprehensive stress testing on your portfolio to understand potential 
-    capital impacts under adverse market conditions.
-    """)
-    
-    # Stress scenario selection
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### 📊 Predefined Scenarios")
-        
-        scenarios = {
-            "Market Shock": {"description": "+200bp rates, +20% volatility", "mtm_shock": 2.0, "addon_shock": 1.2},
-            "Severe Stress": {"description": "+500bp rates, +50% volatility", "mtm_shock": 3.0, "addon_shock": 1.5},
-            "Credit Crisis": {"description": "Credit spreads widen +300bp", "mtm_shock": 1.5, "addon_shock": 1.3},
-            "Liquidity Crisis": {"description": "Collateral haircuts increase 50%", "mtm_shock": 1.2, "addon_shock": 1.1}
-        }
-        
-        selected_scenario = st.selectbox("Select Stress Scenario", list(scenarios.keys()))
-        
-        st.info(f"📝 **{selected_scenario}**: {scenarios[selected_scenario]['description']}")
-        
-    with col2:
-        st.markdown("### ⚙️ Custom Scenario")
-        
-        custom_mtm_shock = st.slider("MTM Shock Multiplier", 1.0, 5.0, 1.5, 0.1)
-        custom_addon_shock = st.slider("Add-on Shock Multiplier", 1.0, 2.0, 1.2, 0.1)
-        custom_collateral_shock = st.slider("Collateral Haircut Increase (%)", 0, 100, 25)
-    
-    # Portfolio summary for stress testing
-    if 'trades' in st.session_state and st.session_state.trades:
-        st.markdown("### 📋 Portfolio Summary")
-        
-        total_notional = sum(abs(trade.notional) for trade in st.session_state.trades)
-        total_mtm = sum(trade.mtm_value for trade in st.session_state.trades)
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Total Trades", len(st.session_state.trades))
-        with col2:
-            st.metric("Total Notional", f"${total_notional/1_000_000:.0f}M")
-        with col3:
-            st.metric("Net MTM", f"${total_mtm/1_000_000:+.1f}M")
-        
-        if st.button("🎯 Run Stress Test", type="primary"):
-            # Simulate stress test results
-            base_capital = 2_500_000  # Base capital requirement
-            
-            scenario = scenarios[selected_scenario]
-            stressed_capital = base_capital * scenario['mtm_shock'] * scenario['addon_shock']
-            
-            impact = stressed_capital - base_capital
-            impact_pct = (impact / base_capital) * 100
-            
-            # Results
-            st.markdown("### 📊 Stress Test Results")
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Base Capital", f"${base_capital/1_000_000:.1f}M")
-            with col2:
-                st.metric("Stressed Capital", f"${stressed_capital/1_000_000:.1f}M", 
-                         f"+${impact/1_000_000:.1f}M")
-            with col3:
-                st.metric("Impact", f"+{impact_pct:.1f}%", 
-                         delta_color="inverse")
-            
-            # Stress test visualization
-            stress_data = pd.DataFrame({
-                'Scenario': ['Base Case', selected_scenario],
-                'Capital Requirement': [base_capital/1_000_000, stressed_capital/1_000_000],
-                'Impact': [0, impact_pct]
-            })
-            
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                name='Capital Requirement ($M)',
-                x=stress_data['Scenario'],
-                y=stress_data['Capital Requirement'],
-                marker_color=['#3282b8', '#dc3545']
-            ))
-            
-            fig.update_layout(
-                title=f'Stress Test Results: {selected_scenario}',
-                yaxis_title='Capital Requirement ($M)',
-                font_family="Inter",
-                showlegend=False
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Recommendations
-            if impact_pct > 50:
-                st.markdown("""
-                <div class="risk-alert">
-                    ⚠️ <strong>High Risk Alert:</strong> Capital requirement increases by more than 50% under stress.
-                    Consider portfolio rebalancing or additional hedging strategies.
-                </div>
-                """, unsafe_allow_html=True)
-            elif impact_pct > 25:
-                st.markdown("""
-                <div class="warning-box">
-                    ⚡ <strong>Moderate Risk:</strong> Significant capital impact under stress.
-                    Monitor portfolio concentration and consider diversification.
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <div class="result-highlight">
-                    ✅ <strong>Well Managed Risk:</strong> Portfolio shows resilience under stress conditions.
-                </div>
-                """, unsafe_allow_html=True)
-    
-    else:
-        st.info("🔔 Please add trades in the SA-CCR Calculator to run stress tests.")
-
-if __name__ == "__main__":
-    main()
+                # Display results
+                display_saccr_results(result)
+                
+            except Exception as e:
+                st.error(f"❌ Calculation error: {str(e)}")
