@@ -851,6 +851,10 @@ REGULATORY PURPOSE:
         else:
             self.calculation_assumptions.append("No collateral provided - assuming zero collateral benefit")
         
+        # Fix complex expressions for f-string
+        position_desc = 'Out-of-the-money (favorable)' if sum_v < 0 else 'In-the-money (unfavorable)' if sum_v > 0 else 'At-the-money (neutral)'
+        total_posted = sum([c['amount'] for c in collateral_details]) if collateral_details else 0
+        
         thinking = {
             'step': 14,
             'title': 'Current Exposure (V) and Collateral (C) Analysis',
@@ -862,10 +866,10 @@ THINKING PROCESS:
 
 CURRENT EXPOSURE ANALYSIS:
 • Sum of trade MTMs (V): ${sum_v:,.0f}
-• Portfolio position: {'Out-of-the-money (favorable)' if sum_v < 0 else 'In-the-money (unfavorable)' if sum_v > 0 else 'At-the-money (neutral)'}
+• Portfolio position: {position_desc}
 
 COLLATERAL ANALYSIS:
-• Total posted: ${sum([c['amount'] for c in collateral_details]):,.0f if collateral_details else 0}
+• Total posted: ${total_posted:,.0f}
 • After haircuts (C): ${sum_c:,.0f}
 • Net exposure (V-C): ${sum_v - sum_c:,.0f}
             """,
