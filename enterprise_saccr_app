@@ -532,6 +532,7 @@ class EnhancedSACCRAgent:
         v_minus_c = sum_v - sum_c
         if addon_result > 0:
             pfe_multiplier_floor = 0.05
+            # Using the corrected formula for the PFE multiplier
             multiplier = min(1.0, pfe_multiplier_floor + (1 - pfe_multiplier_floor) * math.exp(v_minus_c / (2 * (1 - pfe_multiplier_floor) * addon_result)))
         else:
             multiplier = 1.0
@@ -915,3 +916,937 @@ def generate_template_response(question: str) -> str:
 The **PFE Multiplier** recognizes netting benefits in SA-CCR calculations:
 
 **📊 Formula:**
+```
+Multiplier = min(1, 0.05 + 0.95 × exp((V-C) / (2 × 0.95 × AddOn)))
+```
+
+**🔍 Key Points:**
+• **Purpose**: Reduces add-on when portfolio is well-netted
+• **Range**: Between 0.05 and 1.0
+• **Impact**: Lower multiplier = Lower PFE = Lower Capital
+• **Drivers**: Net MTM (V-C) relative to gross risk (AddOn)
+
+**💡 Optimization**: Achieve better netting through offsetting positions in the same hedging sets.
+        """
+    
+    elif "replacement cost" in question_lower or " rc " in question_lower:
+        return """
+**Replacement Cost (RC) Explanation** *(LLM Offline - Template Response)*
+
+**RC** represents current exposure if counterparty defaults today:
+
+**📊 Formulas:**
+```
+Unmargined: RC = max(V - C, 0)
+Margined:   RC = max(V - C, TH + MTA - NICA, 0)
+```
+
+**🔍 Components:**
+• **V**: Sum of trade MTM values
+• **C**: Effective collateral value (after haircuts)  
+• **TH**: Threshold amount
+• **MTA**: Minimum Transfer Amount
+• **NICA**: Net Independent Collateral Amount
+
+**💡 Key Insight**: Margined agreements can significantly reduce RC through regular collateral posting.
+        """
+    
+    elif "optimization" in question_lower or "reduce" in question_lower:
+        return get_optimization_tips()
+    
+    elif "basic" in question_lower or "explain saccr" in question_lower:
+        return get_saccr_basics_explanation()
+    
+    else:
+        return f"""
+**AI Assistant Offline** *(Template Response)*
+
+I can provide basic information about these SA-CCR topics:
+• **"PFE Multiplier"** - How netting benefits work
+• **"Replacement Cost"** - Current exposure calculation  
+• **"Optimization"** - Capital reduction strategies
+• **"SA-CCR Basics"** - Overview of methodology
+
+**🔧 For Full AI Assistance**: Please connect the LLM in the sidebar to get comprehensive, contextual answers to any SA-CCR question.
+
+**Your Question**: "{question}"
+        """
+
+def process_user_input(user_input: str) -> str:
+    """Intelligently process user input, extract info, and ask for missing details"""
+    
+    # Extract information from user input
+    extracted = extract_trade_information(user_input)
+    
+    # Update session state with new information
+    if extracted:
+        st.session_state.extracted_info.update(extracted)
+    
+    # Check if this looks like a calculation request
+    is_calc_request = any(word in user_input.lower() for word in ['calculate', 'rwa', 'capital', 'exposure', 'ead', 'pfe'])
+    
+    # If we have enough info for calculation, proceed
+    if is_calc_request and has_sufficient_info_for_calculation():
+        return generate_rwa_calculation_with_assumptions()
+    
+    # Otherwise, identify what's missing and ask for it
+    missing_info = identify_missing_information()
+    
+    if missing_info and (extracted or is_calc_request):
+        return ask_for_missing_information(missing_info)
+    
+    # If it's a general question, handle normally
+    if st.session_state.enhanced_agent.llm and st.session_state.enhanced_agent.connection_status == "connected":
+        return generate_ai_response(user_input)
+    else:
+        return generate_template_response(user_input)
+
+def extract_trade_information(text: str) -> dict:
+    """Extract trade and portfolio information from natural language input"""
+    extracted = {}
+    text_lower = text.lower()
+    
+    # Extract notional amounts
+    notional_patterns = [
+        r'\$(\d+(?:\.\d+)?)\s*(?:m|million)',
+        r'\$(\d+(?:\.\d+)?)\s*(?:b|billion)',
+        r'\$(\d+(?:,\d{3})*(?:\.\d+)?)',
+        r'(\d+(?:\.\d+)?)\s*(?:million|m)\s*(?:dollars?|\$)',
+        r'(\d+(?:\.\d+)?)\s*(?:billion|b)\s*(?:dollars?|\$)'
+    ]
+    
+    for pattern in notional_patterns:
+        match = re.search(pattern, text_lower)
+        if match:
+            amount = float(match.group(1).replace(',', ''))
+            if 'million' in text_lower or 'm' in text_lower:
+                extracted['notional'] = amount * 1_000_000
+            elif 'billion' in text_lower or 'b' in text_lower:
+                extracted['notional'] = amount * 1_000_000_000
+            else:
+                extracted['notional'] = amount
+            break
+    
+    # Extract asset classes
+    asset_mapping = {
+        'interest rate': AssetClass.INTEREST_RATE,
+        'swap': AssetClass.INTEREST_RATE,
+        'irs': AssetClass.INTEREST_RATE,
+        'fx': AssetClass.FOREIGN_EXCHANGE,
+        'foreign exchange': AssetClass.FOREIGN_EXCHANGE,
+        'forward': AssetClass.FOREIGN_EXCHANGE,  # Often FX
+        'credit': AssetClass.CREDIT,
+        'cds': AssetClass.CREDIT,
+        'equity': AssetClass.EQUITY,
+        'commodity': AssetClass.COMMODITY,
+        'rates': AssetClass.INTEREST_RATE
+    }
+    
+    for keyword, asset_class in asset_mapping.items():
+        if keyword in text_lower:
+            extracted['asset_class'] = asset_class
+            break
+    
+    # Extract counterparty information
+    bank_indicators = ['bank', 'corp', 'inc', 'ltd', 'llc', 'company', 'financial']
+    words = text.split()
+    for i, word in enumerate(words):
+        if any(indicator in word.lower() for indicator in bank_indicators):
+            if i > 0:  # Look for name before bank indicator
+                potential_name = ' '.join(words[max(0, i-2):i+1])
+                extracted['counterparty'] = potential_name.title()
+            break
+    
+    # Extract maturity
+    maturity_patterns = [
+        r'(\d+)\s*(?:years?|y)',
+        r'(\d+)\s*(?:months?|m)',
+        r'maturity[:\s]+(\d+)\s*(?:years?|months?)',
+        r'maturing[:\s]+(\d+)\s*(?:years?|months?)'
+    ]
+    
+    for pattern in maturity_patterns:
+        match = re.search(pattern, text_lower)
+        if match:
+            value = int(match.group(1))
+            if 'month' in match.group(0):
+                extracted['maturity_years'] = value / 12
+            else:
+                extracted['maturity_years'] = value
+            break
+    
+    # Extract margining status
+    if any(word in text_lower for word in ['margined', 'margin', 'threshold', 'mta', 'csa']):
+        extracted['is_margined'] = True
+        
+        # Extract threshold if mentioned
+        threshold_match = re.search(r'threshold of \$?(\d+(?:\.\d+)?)\s*(?:m|million|k|thousand)?', text_lower)
+        if threshold_match:
+            threshold = float(threshold_match.group(1).replace(',', ''))
+            if 'million' in threshold_match.group(0) or 'm' in threshold_match.group(0):
+                threshold *= 1_000_000
+            elif 'thousand' in threshold_match.group(0) or 'k' in threshold_match.group(0):
+                threshold *= 1_000
+            extracted['threshold'] = threshold
+    elif any(word in text_lower for word in ['unmargined', 'no margin', 'no threshold']):
+        extracted['is_margined'] = False
+    
+    # Extract number of trades
+    trade_count_patterns = [
+        r'(\d+)\s*trades?',
+        r'(\d+)\s*transactions?',
+        r'(\d+)\s*deals?'
+    ]
+    
+    for pattern in trade_count_patterns:
+        match = re.search(pattern, text_lower)
+        if match:
+            extracted['trade_count'] = int(match.group(1))
+            break
+    
+    # Extract currencies
+    currency_patterns = ['usd', 'eur', 'gbp', 'jpy', 'chf', 'cad', 'aud']
+    for currency in currency_patterns:
+        if currency in text_lower:
+            extracted['currency'] = currency.upper()
+            break
+    
+    return extracted
+
+def identify_missing_information() -> list:
+    """Identify what information is still needed for accurate RWA calculation"""
+    missing = []
+    info = st.session_state.extracted_info
+    
+    # Essential trade information
+    if 'notional' not in info:
+        missing.append({
+            'category': 'Trade Details',
+            'field': 'notional',
+            'question': "What's the notional amount of your trade(s)? (e.g., $10 million, $100M)"
+        })
+    
+    if 'asset_class' not in info:
+        missing.append({
+            'category': 'Trade Details', 
+            'field': 'asset_class',
+            'question': "What type of derivative is this? (Interest Rate Swap, FX Forward, Credit Default Swap, etc.)"
+        })
+    
+    if 'counterparty' not in info:
+        missing.append({
+            'category': 'Counterparty',
+            'field': 'counterparty',
+            'question': "Who is your counterparty? (Bank name, corporation, etc.)"
+        })
+    
+    if 'maturity_years' not in info:
+        missing.append({
+            'category': 'Trade Details',
+            'field': 'maturity_years', 
+            'question': "What's the maturity/tenor? (e.g., 2 years, 5Y, 18 months)"
+        })
+    
+    # Counterparty details for risk weight
+    if 'counterparty' in info and 'counterparty_type' not in info:
+        missing.append({
+            'category': 'Risk Weight',
+            'field': 'counterparty_type',
+            'question': f"What type of entity is {info.get('counterparty', 'your counterparty')}? (Bank, Corporation, Sovereign, Other Financial Institution)"
+        })
+    
+    # Margining information
+    if 'is_margined' not in info:
+        missing.append({
+            'category': 'Margining',
+            'field': 'is_margined',
+            'question': "Are these trades margined (with collateral agreements/CSA) or unmargined?"
+        })
+    elif info.get('is_margined') and 'threshold' not in info:
+        missing.append({
+            'category': 'Margining',
+            'field': 'threshold',
+            'question': "What's the threshold amount in your margin agreement? (e.g., $1M, $500K)"
+        })
+    
+    return missing[:3]  # Limit to 3 questions at a time to avoid overwhelming
+
+def has_sufficient_info_for_calculation() -> bool:
+    """Check if we have enough information to perform a reasonable RWA calculation"""
+    info = st.session_state.extracted_info
+    required_fields = ['notional', 'asset_class']
+    return all(field in info for field in required_fields)
+
+def ask_for_missing_information(missing_info: list) -> str:
+    """Generate follow-up questions for missing information"""
+    if not missing_info:
+        return "I have all the information I need. Would you like me to calculate the RWA now?"
+    
+    response = "I can help you calculate the SA-CCR RWA! I just need a few more details:\n\n"
+    
+    for i, item in enumerate(missing_info, 1):
+        response += f"**{i}. {item['question']}**\n"
+    
+    response += f"\nYou can answer all at once or one at a time. Based on what you've told me so far:"
+    
+    # Show what we know
+    info = st.session_state.extracted_info
+    if info:
+        response += "\n\n**Information I have:**"
+        for key, value in info.items():
+            formatted_key = key.replace('_', ' ').title()
+            if isinstance(value, AssetClass):
+                formatted_value = value.value
+            elif key == 'notional':
+                formatted_value = f"${value:,.0f}"
+            elif key == 'threshold':
+                formatted_value = f"${value:,.0f}"
+            else:
+                formatted_value = str(value)
+            response += f"\n• {formatted_key}: {formatted_value}"
+    
+    return response
+
+def generate_rwa_calculation_with_assumptions() -> str:
+    """Generate RWA calculation using available info and reasonable assumptions"""
+    info = st.session_state.extracted_info
+    assumptions = make_reasonable_assumptions(info)
+    
+    # Create objects for calculation
+    counterparty_info = CounterpartyInfo(
+        name=info.get('counterparty', 'Generic Counterparty'),
+        country=assumptions.get('country', 'US'),
+        legal_code=assumptions.get('legal_code', 'LEI123456789'),
+        legal_code_description=assumptions.get('legal_desc', 'Corporate Entity'),
+        counterparty_type=assumptions.get('counterparty_type', CounterpartyType.CORPORATE)
+    )
+    
+    # Create trade
+    trade = Trade(
+        trade_id="AI-001",
+        counterparty=counterparty_info.name,
+        asset_class=info.get('asset_class', AssetClass.INTEREST_RATE),
+        trade_type=TradeType.SWAP,
+        notional=info.get('notional', 10_000_000),
+        currency=info.get('currency', 'USD'),
+        underlying="Generic",
+        maturity_date=datetime.now() + timedelta(days=int(info.get('maturity_years', 5) * 365)),
+        mtm_value=0  # Assume at-market
+    )
+    
+    # Create netting set
+    netting_set = NettingSet(
+        netting_set_id="AI-NS-001",
+        counterparty_info=counterparty_info,
+        trades=[trade],
+        threshold=info.get('threshold') if info.get('is_margined') else None,
+        mta=assumptions.get('mta') if info.get('is_margined') else None,
+        nica=0.0,
+        is_margined=info.get('is_margined', False)
+    )
+    
+    # Perform calculation
+    result = st.session_state.enhanced_agent.calculate_structured_saccr(netting_set, [])
+    
+    if result.get('validation_failed'):
+        return "Error in calculation setup. Please provide more complete information."
+    
+    # Build response
+    response = "## 📊 SA-CCR RWA Calculation Based on Your Information\n\n"
+    
+    # Show assumptions made
+    if assumptions:
+        response += "**🔍 Assumptions Made:**\n"
+        for key, value in assumptions.items():
+            formatted_key = key.replace('_', ' ').title()
+            if hasattr(value, 'value'):
+                 response += f"• {formatted_key}: {value.value}\n"
+            else:
+                 response += f"• {formatted_key}: {value}\n"
+        response += "\n*Please confirm if these assumptions are correct, or provide the actual values.*\n\n"
+    
+    # Show structured output
+    response += result['structured_output']
+    
+    # Add optimization suggestions
+    response += f"\n\n**💡 Optimization Opportunities:**\n"
+    rwa = result['final_results']['risk_weighted_assets']
+    if info.get('is_margined', False):
+        response += f"• Your margined structure helps reduce capital requirements\n"
+    else:
+        response += f"• Consider margin agreements - could reduce RWA significantly\n"
+    
+    if rwa > 50_000_000:  # High RWA
+        response += f"• Consider trade compression to reduce gross notional\n"
+        response += f"• Explore central clearing opportunities\n"
+    
+    response += f"\n**Would you like me to:**\n"
+    response += f"• Adjust any of the assumptions I made?\n"
+    response += f"• Add more trades to this calculation?\n" 
+    response += f"• Show optimization scenarios?\n"
+    
+    return response
+
+def make_reasonable_assumptions(info: dict) -> dict:
+    """Make reasonable assumptions for missing information"""
+    assumptions = {}
+    
+    # Counterparty type assumptions
+    if 'counterparty_type' not in info:
+        cp_name = info.get('counterparty', '').lower()
+        if 'bank' in cp_name:
+            assumptions['counterparty_type'] = CounterpartyType.BANK
+        else:
+            assumptions['counterparty_type'] = CounterpartyType.CORPORATE
+    
+    # Country assumption
+    if 'counterparty_country' not in info:
+        assumptions['country'] = 'US'  # Conservative assumption
+    
+    # Legal code
+    if 'counterparty' in info:
+        assumptions['legal_code'] = f"LEI{info['counterparty'].replace(' ', '').upper()[:10]}"
+        assumptions['legal_desc'] = f"{info['counterparty']} - Corporate Entity"
+    
+    # MTA assumption for margined trades
+    if info.get('is_margined') and 'mta' not in info:
+        threshold = info.get('threshold', 1_000_000)
+        assumptions['mta'] = min(250_000, threshold * 0.25)  # 25% of threshold or $250K
+    
+    # Currency assumption
+    if 'currency' not in info:
+        assumptions['currency'] = 'USD'
+    
+    return assumptions
+
+def get_saccr_basics_explanation() -> str:
+    """Get basic SA-CCR explanation"""
+    return """
+**📚 SA-CCR Basics Overview**
+
+**What is SA-CCR?**
+The **Standardised Approach for Counterparty Credit Risk** is Basel III's method for calculating capital requirements for derivative exposures.
+
+**🎯 Core Formula:**
+```
+RWA = Risk Weight × EAD
+EAD = α × (RC + PFE)
+```
+
+**🏗️ Key Components:**
+
+**1. Replacement Cost (RC)**
+• Current cost to replace trades if counterparty defaults
+• Benefits from netting and collateral
+
+**2. Potential Future Exposure (PFE)** • Future risk from market movements
+• Calculated using supervisory factors and add-ons
+
+**3. Exposure at Default (EAD)**
+• Total exposure combining current and future risk
+• Uses regulatory alpha factor (α = 1.4)
+
+**📊 The Process:**
+1. **Group** trades into netting sets and hedging sets
+2. **Calculate** add-ons using supervisory parameters  
+3. **Apply** multiplier for netting benefits
+4. **Combine** with replacement cost
+5. **Apply** risk weights based on counterparty type
+
+**💡 Key Benefits:**
+• More risk-sensitive than previous approaches
+• Recognizes diversification and netting
+• Consistent global implementation
+    """
+
+def get_optimization_tips() -> str:
+    """Get SA-CCR optimization strategies"""
+    return """
+**🔧 SA-CCR Capital Optimization Strategies**
+
+**1. 📊 Portfolio Netting**
+• **Strategy**: Execute offsetting trades within same netting sets
+• **Impact**: Improves PFE multiplier, reduces aggregate add-on
+• **Example**: Long and short positions in same currency/tenor
+
+**2. 🛡️ Collateral Management**
+• **Strategy**: Post high-quality, low-haircut collateral
+• **Impact**: Reduces replacement cost (RC)
+• **Best Collateral**: Cash (0% haircut) > Govt bonds (0.5%) > Corporate bonds (4%)
+
+**3. 🏛️ Central Clearing**
+• **Strategy**: Clear eligible trades through CCPs
+• **Impact**: Lower risk weights, standardized margining
+• **Benefit**: Typically 2-4% risk weight vs 20-100% bilateral
+
+**4. ⚖️ Margin Agreements**
+• **Strategy**: Implement comprehensive CSAs with low thresholds
+• **Impact**: Can dramatically reduce RC
+• **Key Terms**: Lower threshold + MTA = Better capital efficiency
+
+**5. 🎯 Trade Compression**
+• **Strategy**: Eliminate redundant trades while maintaining risk profile
+• **Impact**: Reduces gross notional, lowers add-ons
+• **Process**: Regular portfolio optimization cycles
+
+**6. 📅 Maturity Management**
+• **Strategy**: Optimize trade tenors within hedging sets
+• **Impact**: Maturity factors affect supervisory add-ons
+• **Sweet Spot**: Often around 1-year maturity for factor optimization
+
+**💡 Pro Tip**: Combine multiple strategies for maximum impact - a well-collateralized, netted, centrally-cleared portfolio can achieve 80%+ capital savings vs worst-case scenarios.
+    """
+
+def get_risk_drivers_explanation() -> str:
+    """Get risk drivers explanation"""
+    return """
+**📊 Key SA-CCR Risk Drivers**
+
+**1. 🎯 Notional Amounts**
+• **Impact**: Direct input to add-on calculations
+• **Insight**: Gross notional matters more than net notional
+• **Management**: Trade compression to reduce gross exposure
+
+**2. 🏷️ Asset Class Mix**
+• **Impact**: Different supervisory factors by asset class
+• **Hierarchy (Highest to Lowest SF)**: Equity (32%) > Commodity (18%) > FX (4%) > Rates (0.5-1.5%) > Credit (0.46%)
+• **Strategy**: Understand your portfolio composition
+
+**3. ⏰ Maturity Profile** • **Impact**: Maturity factors affect add-on magnitude
+• **Formula**: MF = √(min(M,1)) where M = years to maturity
+• **Optimization**: Shorter maturities (under 1 year) generally more capital efficient
+
+**4. 🔄 Netting Efficiency**
+• **Impact**: Better netting improves PFE multiplier
+• **Measurement**: Net MTM vs Gross Add-on ratio
+• **Target**: Achieve multiplier closer to 0.05 minimum
+
+**5. 🏦 Counterparty Type**
+• **Impact**: Risk weights vary dramatically
+• **Range**: Sovereigns (0%) < Banks (20%) < Corporates (100%) < Others (125%)
+• **Strategy**: Counterparty diversification considerations
+
+**6. 💰 Collateral Quality & Coverage**
+• **Impact**: Directly reduces replacement cost
+• **Quality Ladder**: Cash > Govt Bonds > IG Corporates > Equities
+• **Coverage**: Over-collateralization can zero out RC
+
+**7. 🎛️ Margin Agreement Terms**
+• **Impact**: Threshold + MTA determines margined RC floor
+• **Optimization**: Lower thresholds and MTAs reduce capital
+• **Trade-off**: Operational burden vs capital efficiency
+
+**📈 Monitoring Dashboard KPIs:**
+• Aggregate Add-on by Asset Class
+• PFE Multiplier Trends  
+• Net vs Gross Exposure Ratios
+• Collateral Utilization Rates
+• Average Risk Weight by Counterparty
+    """
+
+def saccr_calculator():
+    """Enhanced SA-CCR calculator with structured output"""
+    st.markdown('<div class="section-header">📊 SA-CCR Calculation Setup</div>', unsafe_allow_html=True)
+    
+    # Netting Set Information
+    with st.expander("📋 Netting Set Information", expanded=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            netting_set_id = st.text_input("Netting Set ID*", placeholder="NS-001")
+        with col2:
+            is_margined = st.checkbox("Margined Netting Set", help="Check if this netting set has margin agreements")
+    
+    # Counterparty Information
+    with st.expander("🏢 Counterparty Information", expanded=True):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            cp_name = st.text_input("Counterparty Name*", placeholder="Example Corp")
+            cp_country = st.selectbox("Country*", ["", "US", "GB", "DE", "JP", "CA", "AU", "CH", "Other"])
+        with col2:
+            cp_legal_code = st.text_input("Legal Entity Code*", placeholder="LEI123456789")
+            cp_type = st.selectbox("Counterparty Type*", [ct.value for ct in CounterpartyType])
+        with col3:
+            cp_legal_desc = st.text_input("Legal Code Description*", placeholder="Corporate Entity")
+            cp_rating = st.text_input("Credit Rating", placeholder="BBB+ (Optional)")
+    
+    # Margining Details
+    if is_margined:
+        with st.expander("💰 Margining Agreement Details", expanded=True):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                threshold = st.number_input("Threshold ($)*", min_value=0.0, value=1000000.0)
+            with col2:
+                mta = st.number_input("MTA ($)*", min_value=0.0, value=250000.0)
+            with col3:
+                nica = st.number_input("NICA ($)", min_value=0.0, value=0.0)
+    else:
+        threshold = None
+        mta = None
+        nica = 0.0
+    
+    # Trade Input
+    st.markdown('<div class="section-header">📈 Trade Portfolio</div>', unsafe_allow_html=True)
+    
+    if 'enhanced_trades' not in st.session_state:
+        st.session_state.enhanced_trades = []
+    
+    with st.form("enhanced_trade_form"):
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            trade_id = st.text_input("Trade ID*", placeholder=f"T-{len(st.session_state.enhanced_trades)+1:03d}")
+            asset_class = st.selectbox("Asset Class*", [ac.value for ac in AssetClass])
+        with col2:
+            notional = st.number_input("Notional ($)*", min_value=1.0, value=10000000.0, step=1000000.0)
+            currency = st.selectbox("Currency*", ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD"])
+        with col3:
+            maturity_years = st.number_input("Maturity (Years)*", min_value=0.1, value=5.0, step=0.5)
+            trade_type = st.selectbox("Trade Type", [tt.value for tt in TradeType])
+        with col4:
+            mtm_value = st.number_input("MTM Value ($)", value=0.0, step=50000.0)
+            delta = st.number_input("Delta", min_value=-1.0, max_value=1.0, value=1.0, step=0.1)
+
+        if st.form_submit_button("➕ Add Trade"):
+            if trade_id and notional > 0 and cp_name:
+                new_trade = Trade(
+                    trade_id=trade_id,
+                    counterparty=cp_name,
+                    asset_class=AssetClass(asset_class),
+                    trade_type=TradeType(trade_type),
+                    notional=notional,
+                    currency=currency,
+                    underlying="Generic",
+                    maturity_date=datetime.now() + timedelta(days=int(maturity_years * 365)),
+                    mtm_value=mtm_value,
+                    delta=delta
+                )
+                st.session_state.enhanced_trades.append(new_trade)
+                st.success(f"✅ Added {trade_id}")
+            else:
+                st.error("❌ Please fill required fields")
+
+    # Display current trades
+    if st.session_state.enhanced_trades:
+        st.markdown("**Current Trades:**")
+        trades_df = pd.DataFrame([{
+            'Trade ID': t.trade_id,
+            'Asset Class': t.asset_class.value,
+            'Notional ($M)': f"{t.notional/1e6:.1f}",
+            'Currency': t.currency,
+            'MTM ($K)': f"{t.mtm_value/1e3:.0f}",
+            'Maturity (Y)': f"{t.time_to_maturity():.1f}"
+        } for t in st.session_state.enhanced_trades])
+        st.dataframe(trades_df, use_container_width=True)
+        
+        if st.button("🗑️ Clear All Trades"):
+            st.session_state.enhanced_trades = []
+            st.rerun()
+
+    # Collateral Input
+    st.markdown('<div class="section-header">🛡️ Collateral Portfolio</div>', unsafe_allow_html=True)
+    
+    if 'enhanced_collateral' not in st.session_state:
+        st.session_state.enhanced_collateral = []
+    
+    with st.form("enhanced_collateral_form"):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            coll_type = st.selectbox("Collateral Type", [ct.value for ct in CollateralType])
+        with col2:
+            coll_amount = st.number_input("Market Value ($)", min_value=0.0, value=1000000.0)
+        with col3:
+            coll_currency = st.selectbox("Currency", ["USD", "EUR", "GBP", "JPY", "CHF"])
+
+        if st.form_submit_button("➕ Add Collateral"):
+            new_coll = Collateral(
+                collateral_type=CollateralType(coll_type),
+                currency=coll_currency,
+                amount=coll_amount,
+                market_value=coll_amount
+            )
+            st.session_state.enhanced_collateral.append(new_coll)
+            st.success(f"✅ Added {coll_type}")
+
+    # Display current collateral
+    if st.session_state.enhanced_collateral:
+        st.markdown("**Current Collateral:**")
+        for i, coll in enumerate(st.session_state.enhanced_collateral, 1):
+            effective_value = coll.market_value * (1 - coll.haircut_percentage/100)
+            st.write(f"{i}. {coll.collateral_type.value}: ${coll.market_value:,.0f} (Effective: ${effective_value:,.0f} after {coll.haircut_percentage}% haircut)")
+
+    # Calculate Button
+    st.markdown("---")
+    if st.button("🚀 Calculate SA-CCR with Structured Output", type="primary", use_container_width=True):
+        # Create counterparty info object
+        counterparty_info = CounterpartyInfo(
+            name=cp_name,
+            country=cp_country,
+            legal_code=cp_legal_code,
+            legal_code_description=cp_legal_desc,
+            counterparty_type=CounterpartyType(cp_type),
+            credit_rating=cp_rating
+        )
+        
+        # Create netting set
+        netting_set = NettingSet(
+            netting_set_id=netting_set_id,
+            counterparty_info=counterparty_info,
+            trades=st.session_state.enhanced_trades,
+            threshold=threshold,
+            mta=mta,
+            nica=nica,
+            is_margined=is_margined
+        )
+        
+        with st.spinner("🧮 Performing Enhanced SA-CCR calculation..."):
+            try:
+                result = st.session_state.enhanced_agent.calculate_structured_saccr(
+                    netting_set, 
+                    st.session_state.enhanced_collateral
+                )
+                
+                # Store result in session state for viewing
+                st.session_state.latest_result = result
+                
+                display_enhanced_results(result)
+                
+            except Exception as e:
+                st.error(f"❌ Calculation error: {str(e)}")
+
+def display_enhanced_results(result: Dict):
+    """Display enhanced structured results"""
+    if result.get('validation_failed'):
+        st.markdown('<div class="missing-info">', unsafe_allow_html=True)
+        st.error("❌ **Missing Required Information**")
+        
+        st.markdown("**Please provide the following missing information:**")
+        for field in result['missing_fields']:
+            st.write(f"• {field}")
+        
+        if result.get('warnings'):
+            st.markdown("**Warnings:**")
+            for warning in result['warnings']:
+                st.warning(warning)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        return
+    
+    # Display structured output
+    st.markdown("## 📊 SA-CCR Calculation Results")
+    
+    # Key metrics summary
+    final_results = result['final_results']
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.metric("RWA", f"${final_results['risk_weighted_assets']/1e6:.2f}M")
+    col2.metric("Capital Required", f"${final_results['capital_requirement']/1e3:.1f}K")
+    col3.metric("EAD", f"${final_results['exposure_at_default']/1e6:.2f}M")
+    col4.metric("PFE", f"${final_results['potential_future_exposure']/1e6:.2f}M")
+    col5.metric("RC", f"${final_results['replacement_cost']/1e6:.2f}M")
+    
+    # Display structured output
+    st.markdown("### 📋 Complete Structured Calculation")
+    st.markdown(result['structured_output'])
+    
+    # Margining statistics
+    if result.get('margining_statistics'):
+        stats = result['margining_statistics']
+        if stats['margined_rc'] is not None:
+            st.markdown("### 📈 Margining Impact Analysis")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Unmargined RC", f"${stats['unmargined_rc']:,.0f}")
+            col2.metric("Margined RC", f"${stats['margined_rc']:,.0f}")
+            benefit = stats['unmargined_rc'] - stats['margined_rc']
+            col3.metric("Margining Benefit", f"${benefit:,.0f}", delta=f"${-benefit:,.0f}")
+
+def load_example():
+    """Load predefined examples"""
+    st.markdown('<div class="section-header">📋 Load Reference Examples</div>', unsafe_allow_html=True)
+    
+    example_type = st.selectbox("Select Example Type:", [
+        "Corporate Interest Rate Swap Portfolio",
+        "Bank FX Forward Portfolio", 
+        "Securities Based Lending",
+        "Multi-Asset Margined Portfolio"
+    ])
+    
+    if st.button("🔄 Load Selected Example", type="primary"):
+        if example_type == "Corporate Interest Rate Swap Portfolio":
+            load_corporate_example()
+        elif example_type == "Bank FX Forward Portfolio":
+            load_bank_example()
+        elif example_type == "Securities Based Lending":
+            load_sbl_example()
+        elif example_type == "Multi-Asset Margined Portfolio":
+            load_margined_example()
+        
+        st.success(f"✅ Loaded {example_type} example!")
+        st.info("Navigate to the 'SA-CCR Calculator' page to view and run the example.")
+
+def load_corporate_example():
+    """Load corporate IRS portfolio example"""
+    # Clear existing data
+    st.session_state.enhanced_trades = [
+        Trade(
+            trade_id="IRS-001",
+            counterparty="Corporate ABC",
+            asset_class=AssetClass.INTEREST_RATE,
+            trade_type=TradeType.SWAP,
+            notional=100_000_000,
+            currency="USD",
+            underlying="USD-LIBOR-3M",
+            maturity_date=datetime.now() + timedelta(days=365*5),
+            mtm_value=1_500_000,
+            delta=1.0
+        ),
+        Trade(
+            trade_id="IRS-002", 
+            counterparty="Corporate ABC",
+            asset_class=AssetClass.INTEREST_RATE,
+            trade_type=TradeType.SWAP,
+            notional=-75_000_000,
+            currency="USD",
+            underlying="USD-LIBOR-3M",
+            maturity_date=datetime.now() + timedelta(days=365*10),
+            mtm_value=-900_000,
+            delta=-1.0
+        )
+    ]
+    
+    st.session_state.enhanced_collateral = [
+        Collateral(
+            collateral_type=CollateralType.CASH,
+            currency="USD",
+            amount=500_000,
+            market_value=500_000
+        )
+    ]
+
+def load_sbl_example():
+    """Load securities-based lending example similar to the provided sample"""
+    st.session_state.enhanced_trades = [
+        Trade(
+            trade_id="SBL-001",
+            counterparty="GWIM Client",
+            asset_class=AssetClass.CREDIT, # SBL is treated as a credit derivative
+            trade_type=TradeType.FORWARD,
+            notional=1_000_000,
+            currency="USD", 
+            underlying="Securities Based Loan",
+            maturity_date=datetime.now() + timedelta(days=90), # Assuming a 90-day renewable term
+            mtm_value=1_000_000,  # Funded amount
+            delta=1.0
+        )
+    ]
+    
+    # Recreate the collateral from the example
+    st.session_state.enhanced_collateral = [
+        Collateral(collateral_type=CollateralType.CASH, currency="USD", amount=150_000, market_value=150_000),
+        Collateral(collateral_type=CollateralType.GOVERNMENT_BONDS, currency="USD", amount=450_000, market_value=450_000),
+        Collateral(collateral_type=CollateralType.MONEY_MARKET, currency="USD", amount=300_000, market_value=300_000),
+        Collateral(collateral_type=CollateralType.EQUITIES, currency="USD", amount=1_500_000, market_value=1_500_000)
+    ]
+
+def load_bank_example():
+    """Load bank FX portfolio example"""
+    st.session_state.enhanced_trades = [
+        Trade(
+            trade_id="FX-001",
+            counterparty="Global Bank",
+            asset_class=AssetClass.FOREIGN_EXCHANGE,
+            trade_type=TradeType.FORWARD,
+            notional=50_000_000,
+            currency="EUR",
+            underlying="EUR/USD",
+            maturity_date=datetime.now() + timedelta(days=180),
+            mtm_value=250_000,
+            delta=1.0
+        ),
+        Trade(
+            trade_id="FX-002",
+            counterparty="Global Bank", 
+            asset_class=AssetClass.FOREIGN_EXCHANGE,
+            trade_type=TradeType.FORWARD,
+            notional=-50_000_000,
+            currency="EUR",
+            underlying="EUR/USD",
+            maturity_date=datetime.now() + timedelta(days=90),
+            mtm_value=-150_000,
+            delta=-1.0
+        )
+    ]
+    
+    st.session_state.enhanced_collateral = []
+
+def load_margined_example():
+    """Load complex margined portfolio example"""
+    st.session_state.enhanced_trades = [
+        Trade(
+            trade_id="SWAP-001",
+            counterparty="Investment Bank",
+            asset_class=AssetClass.INTEREST_RATE,
+            trade_type=TradeType.SWAP,
+            notional=200_000_000,
+            currency="USD",
+            underlying="USD-SOFR",
+            maturity_date=datetime.now() + timedelta(days=365*7),
+            mtm_value=3_200_000,
+            delta=1.0
+        ),
+        Trade(
+            trade_id="FX-001",
+            counterparty="Investment Bank",
+            asset_class=AssetClass.FOREIGN_EXCHANGE,
+            trade_type=TradeType.FORWARD,
+            notional=100_000_000,
+            currency="EUR",
+            underlying="EUR/USD",
+            maturity_date=datetime.now() + timedelta(days=365),
+            mtm_value=-800_000,
+            delta=1.0
+        )
+    ]
+    
+    st.session_state.enhanced_collateral = [
+        Collateral(collateral_type=CollateralType.CASH, currency="USD", amount=2_000_000, market_value=2_000_000),
+        Collateral(collateral_type=CollateralType.GOVERNMENT_BONDS, currency="USD", amount=1_000_000, market_value=1_000_000)
+    ]
+
+def results_viewer():
+    """View and export calculation results"""
+    st.markdown('<div class="section-header">📊 Results Viewer & Export</div>', unsafe_allow_html=True)
+    
+    if 'latest_result' not in st.session_state or not st.session_state.latest_result:
+        st.info("📝 No calculation results available. Please run a calculation first.")
+        return
+    
+    result = st.session_state.latest_result
+    
+    if result.get('validation_failed'):
+        st.warning("⚠️ Last calculation failed validation. Please complete the required inputs.")
+        return
+    
+    # Display results
+    st.markdown("### 📋 Latest Calculation Results")
+    display_enhanced_results(result)
+    
+    # Export options
+    st.markdown("### 📤 Export Options")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # The copy-to-clipboard functionality in Streamlit is complex to implement
+        # robustly without external libraries, so we'll show the text for manual copying.
+        with st.expander("📋 Copy Results Text"):
+            st.code(result['structured_output'], language="markdown")
+
+    with col2:
+        # Prepare download data
+        download_data = result['structured_output']
+        st.download_button(
+            label="💾 Download as Text File",
+            data=download_data,
+            file_name="saccr_calculation_results.txt",
+            mime="text/plain"
+        )
+
+if __name__ == "__main__":
+    main()
