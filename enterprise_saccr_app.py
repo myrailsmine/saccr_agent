@@ -2143,10 +2143,11 @@ def display_enhanced_saccr_results(result: Dict, netting_set: NettingSet):
     # Enhanced AI Analysis
     if result.get('ai_explanation'):
         st.markdown("### 🤖 AI Expert Analysis")
+        ai_explanation_text = result['ai_explanation'].replace('\n', '<br><br>')
         st.markdown(f"""
         <div class="ai-response">
             <h4>🎯 Regulatory Expert Insights</h4>
-            {result['ai_explanation'].replace('\n', '<br><br>')}
+            {ai_explanation_text}
         </div>
         """, unsafe_allow_html=True)
     
