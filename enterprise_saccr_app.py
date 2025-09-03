@@ -2082,11 +2082,12 @@ def display_enhanced_saccr_results(result: Dict, netting_set: NettingSet):
             st.markdown("#### Step-by-Step Regulatory Analysis:")
             
             for thinking in result['thinking_steps']:
+                reasoning_text = thinking['reasoning'].replace('\n', '<br>')
                 st.markdown(f"""
                 <div class="thinking-process">
                     <h4>Step {thinking['step']}: {thinking['title']}</h4>
                     <div class="step-reasoning">
-                        {thinking['reasoning'].replace('\n', '<br>')}
+                        {reasoning_text}
                     </div>
                     <div class="formula-breakdown">
                         <strong>Formula:</strong> {thinking['formula']}
