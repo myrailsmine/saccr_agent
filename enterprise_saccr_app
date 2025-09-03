@@ -760,126 +760,374 @@ def main():
         results_viewer()
 
 def ai_assistant_page():
-    """Enhanced AI assistant with intelligent information extraction and progressive questioning"""
+    """AI assistant for SA-CCR questions and intelligent portfolio analysis"""
     st.markdown('<div class="section-header">🤖 AI SA-CCR Expert Assistant</div>', unsafe_allow_html=True)
     
     # Connection status display
     status = st.session_state.enhanced_agent.connection_status
     if status == "connected":
-        st.success("🟢 **AI Assistant Connected** - Ask any SA-CCR questions or describe your portfolio!")
+        st.success("🟢 **AI Assistant Connected** - Describe your trades and I'll calculate RWA!")
     else:
-        st.warning("🟡 **AI Assistant Offline** - Connect LLM in sidebar for full functionality")
+        st.warning("🟡 **AI Assistant Offline** - Connect LLM in sidebar for full AI functionality")
     
-    # Initialize session states for progressive questioning
+    # Initialize session states
     if 'extracted_info' not in st.session_state:
         st.session_state.extracted_info = {}
-    if 'missing_info_queue' not in st.session_state:
-        st.session_state.missing_info_queue = []
-    if 'awaiting_response' not in st.session_state:
-        st.session_state.awaiting_response = False
-    if 'current_assumptions' not in st.session_state:
-        st.session_state.current_assumptions = {}
-    
-    # Sample questions and guidance
-    with st.expander("💡 What You Can Tell Me", expanded=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("""
-            **🗣️ Just Describe Your Situation:**
-            • "I have a $100M interest rate swap with Bank ABC maturing in 5 years"
-            • "We have 3 FX forwards with European Bank, total $50M, margined with 1M threshold"
-            • "My portfolio has 10 trades across rates and credit, need RWA calculation"
-            
-            **📊 Portfolio Descriptions:**
-            • "Calculate RWA for our derivatives book with XYZ Corp"
-            • "I need SA-CCR capital for margined swaps with investment bank"
-            • "What's my exposure on unmargined commodity forwards?"
-            """)
-        
-        with col2:
-            st.markdown("""
-            **🔍 I'll Ask Follow-ups Like:**
-            • What's the counterparty country and type?
-            • Are these trades margined or unmargined?
-            • What collateral do you have posted?
-            • What are the specific trade details?
-            
-            **🎯 Then I'll Provide:**
-            • Complete RWA calculation with all 24 steps
-            • Structured output matching your format requirements
-            • Assumptions I made clearly stated
-            • Recommendations for optimization
-            """)
-    
-    # Progressive information collection status
-    if st.session_state.extracted_info:
-        with st.expander("📋 Information Collected So Far", expanded=True):
-            display_collected_info()
-    
-    # Chat interface
-    st.markdown("### 💬 Describe Your SA-CCR Calculation Need")
-    
     if 'ai_chat_history' not in st.session_state:
         st.session_state.ai_chat_history = [
             {
                 "role": "assistant", 
-                "content": "Hello! I'm your SA-CCR expert assistant. **Just describe your derivatives portfolio or specific trades**, and I'll ask the right follow-up questions to calculate your RWA accurately. No need to know all the technical details upfront - I'll guide you through it!"
+                "content": "Hello! I'm your SA-CCR expert assistant. **Just describe your derivatives portfolio or trades**, and I'll ask follow-up questions to calculate your RWA accurately. Try: *'I have a $100M swap with Deutsche Bank'*"
             }
         ]
-
+    
+    # Sample usage guide
+    with st.expander("💡 How to Use - Just Describe Your Trades", expanded=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""
+            **Examples of what you can say:**
+            • "I have a $100M interest rate swap with Bank ABC"
+            • "Calculate RWA for 3 FX forwards, total $50M"
+            • "My portfolio has margined swaps with 1M threshold"
+            • "Need SA-CCR capital for commodity derivatives"
+            """)
+        
+        with col2:
+            st.markdown("""
+            **I'll automatically:**
+            • Extract trade information from your description
+            • Ask for missing critical details
+            • Make reasonable assumptions where needed
+            • Generate complete structured RWA calculation
+            """)
+    
+    # Information collection status
+    if st.session_state.extracted_info:
+        with st.expander("📋 Information I've Collected", expanded=True):
+            for key, value in st.session_state.extracted_info.items():
+                formatted_key = key.replace('_', ' ').title()
+                if hasattr(value, 'value'):  # Enum
+                    formatted_value = value.value
+                elif key == 'notional':
+                    formatted_value = f"${value:,.0f}"
+                else:
+                    formatted_value = str(value)
+                st.write(f"• {formatted_key}: {formatted_value}")
+    
+    # Chat interface
+    st.markdown("### 💬 Chat Interface")
+    
     # Display chat history
     for message in st.session_state.ai_chat_history:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
     # Chat input
-    if prompt := st.chat_input("Describe your trades, portfolio, or ask any SA-CCR question..."):
-        # Add user message to history
+    if prompt := st.chat_input("Describe your trades or ask SA-CCR questions..."):
+        # Add user message
         st.session_state.ai_chat_history.append({"role": "user", "content": prompt})
         
-        # Display user message
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Process user input intelligently
+        # Generate response
         with st.chat_message("assistant"):
-            with st.spinner("🧠 Analyzing your information and identifying what else I need..."):
-                ai_response = process_intelligent_query(prompt)
+            with st.spinner("Analyzing your input..."):
+                ai_response = process_user_input(prompt)
                 st.markdown(ai_response)
         
-        # Add assistant response to history
         st.session_state.ai_chat_history.append({"role": "assistant", "content": ai_response})
     
-    # Quick action buttons
+    # Quick actions
     st.markdown("---")
-    st.markdown("### ⚡ Quick Actions")
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        if st.button("📚 SA-CCR Guide"):
-            basic_explanation = get_saccr_basics_explanation()
-            st.session_state.ai_chat_history.append({"role": "assistant", "content": basic_explanation})
+        if st.button("📚 SA-CCR Basics"):
+            response = get_saccr_basics_explanation()
+            st.session_state.ai_chat_history.append({"role": "assistant", "content": response})
             st.rerun()
     
     with col2:
-        if st.button("🔧 Optimization Tips"):
-            optimization_tips = get_optimization_tips()
-            st.session_state.ai_chat_history.append({"role": "assistant", "content": optimization_tips})
+        if st.button("🔧 Optimization"):
+            response = get_optimization_tips()
+            st.session_state.ai_chat_history.append({"role": "assistant", "content": response})
             st.rerun()
     
     with col3:
-        if st.button("📊 Example Calculation"):
+        if st.button("📊 Calculate RWA"):
             if st.session_state.extracted_info:
-                example_calc = generate_example_with_current_info()
+                response = attempt_rwa_calculation()
             else:
-                example_calc = "Please describe your trades first, then I can show you a calculation example with your specific information."
-            st.session_state.ai_chat_history.append({"role": "assistant", "content": example_calc})
+                response = "Please describe your trades first, then I can calculate RWA."
+            st.session_state.ai_chat_history.append({"role": "assistant", "content": response})
             st.rerun()
     
     with col4:
-        if st.button("🧹 Start Over"):
-            reset_progressive_session()
+        if st.button("🧹 Clear"):
+            st.session_state.extracted_info = {}
+            st.session_state.ai_chat_history = [
+                {"role": "assistant", "content": "Cleared! Ready for new SA-CCR calculation."}
+            ]
             st.rerun()
+
+def generate_ai_response(question: str) -> str:
+    """Generate AI response using connected LLM"""
+    system_prompt = """You are a world-class Basel III SA-CCR regulatory expert with deep knowledge of:
+    - Complete 24-step SA-CCR calculation methodology
+    - Regulatory requirements and interpretations
+    - Risk management optimization strategies
+    - Technical implementation details
+    - Cross-asset class derivative structures
+
+    Provide clear, accurate, and actionable responses. Use technical terms appropriately but explain complex concepts clearly. Include formulas, examples, or step-by-step guidance when helpful. Structure your responses with headings and bullet points for clarity."""
+    
+    try:
+        response = st.session_state.enhanced_agent.llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=question)
+        ])
+        return response.content
+    except Exception as e:
+        return f"**AI Response Error**: {str(e)}\n\nPlease check your LLM connection settings in the sidebar."
+
+def generate_template_response(question: str) -> str:
+    """Generate template responses when LLM is not available"""
+    question_lower = question.lower()
+    
+    if "pfe multiplier" in question_lower or "multiplier" in question_lower:
+        return """
+**PFE Multiplier Explanation** *(LLM Offline - Template Response)*
+
+The **PFE Multiplier** recognizes netting benefits in SA-CCR calculations:
+
+**📊 Formula:**
+```
+Multiplier = min(1, 0.05 + 0.95 × exp(-0.05 × max(V,0) / (1.4 × AddOn)))
+```
+
+**🔍 Key Points:**
+• **Purpose**: Reduces add-on when portfolio is well-netted
+• **Range**: Between 0.05 and 1.0
+• **Impact**: Lower multiplier = Lower PFE = Lower Capital
+• **Drivers**: Net MTM (V) relative to gross risk (AddOn)
+
+**💡 Optimization**: Achieve better netting through offsetting positions in the same hedging sets.
+        """
+    
+    elif "replacement cost" in question_lower or " rc " in question_lower:
+        return """
+**Replacement Cost (RC) Explanation** *(LLM Offline - Template Response)*
+
+**RC** represents current exposure if counterparty defaults today:
+
+**📊 Formulas:**
+```
+Unmargined: RC = max(V - C, 0)
+Margined:   RC = max(V - C, TH + MTA - NICA, 0)
+```
+
+**🔍 Components:**
+• **V**: Sum of trade MTM values
+• **C**: Effective collateral value (after haircuts)  
+• **TH**: Threshold amount
+• **MTA**: Minimum Transfer Amount
+• **NICA**: Net Independent Collateral Amount
+
+**💡 Key Insight**: Margined agreements can significantly reduce RC through regular collateral posting.
+        """
+    
+    elif "optimization" in question_lower or "reduce" in question_lower:
+        return get_optimization_tips()
+    
+    elif "basic" in question_lower or "explain saccr" in question_lower:
+        return get_saccr_basics_explanation()
+    
+    else:
+        return f"""
+**AI Assistant Response** *(Template Mode)*
+
+I can provide information about these SA-CCR topics:
+• **"PFE Multiplier"** - How netting benefits work
+• **"Replacement Cost"** - Current exposure calculation  
+• **"Optimization"** - Capital reduction strategies
+• **"SA-CCR Basics"** - Overview of methodology
+
+**🔧 For Full AI Assistance**: Please connect the LLM in the sidebar to get comprehensive, contextual answers to any SA-CCR question.
+
+**Your Question**: "{question}"
+        """
+    """Process user input and extract trade information"""
+    # Extract information from the input
+    extracted = extract_basic_info(user_input)
+    
+    if extracted:
+        st.session_state.extracted_info.update(extracted)
+        response = f"Got it! I extracted: {', '.join([f'{k}: {v}' for k, v in extracted.items()])}\n\n"
+    else:
+        response = ""
+    
+    # Check if it's a calculation request
+    calc_words = ['calculate', 'rwa', 'capital', 'exposure']
+    is_calc_request = any(word in user_input.lower() for word in calc_words)
+    
+    if is_calc_request and st.session_state.extracted_info:
+        return attempt_rwa_calculation()
+    elif is_calc_request:
+        return response + "I need more information. Please describe your trades (notional, counterparty, asset class, etc.)"
+    
+    # Check what's missing and ask for it
+    missing = get_missing_info()
+    if missing:
+        response += f"To calculate RWA accurately, I still need:\n"
+        for item in missing[:3]:  # Limit to 3 questions
+            response += f"• {item}\n"
+        return response
+    
+    # If we have enough info, offer to calculate
+    if len(st.session_state.extracted_info) >= 3:
+        response += "I have good information now. Would you like me to calculate the RWA?"
+        return response
+    
+    # Otherwise, provide general help
+    if st.session_state.enhanced_agent.llm and st.session_state.enhanced_agent.connection_status == "connected":
+        return generate_ai_response(user_input)
+    else:
+        return generate_template_response(user_input)
+
+def extract_basic_info(text: str) -> dict:
+    """Extract basic trade information from text"""
+    import re
+    extracted = {}
+    text_lower = text.lower()
+    
+    # Extract notional
+    patterns = [
+        r'\$(\d+(?:\.\d+)?)\s*(?:m|million)',
+        r'\$(\d+(?:\.\d+)?)\s*(?:b|billion)',
+        r'(\d+)\s*million',
+        r'(\d+)\s*billion'
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, text_lower)
+        if match:
+            amount = float(match.group(1))
+            if 'million' in pattern or 'm' in pattern:
+                extracted['notional'] = amount * 1_000_000
+            elif 'billion' in pattern or 'b' in pattern:
+                extracted['notional'] = amount * 1_000_000_000
+            break
+    
+    # Asset classes
+    if any(word in text_lower for word in ['swap', 'interest', 'rate', 'irs']):
+        extracted['asset_class'] = AssetClass.INTEREST_RATE
+    elif any(word in text_lower for word in ['fx', 'foreign', 'forward']):
+        extracted['asset_class'] = AssetClass.FOREIGN_EXCHANGE
+    elif 'credit' in text_lower or 'cds' in text_lower:
+        extracted['asset_class'] = AssetClass.CREDIT
+    
+    # Counterparty
+    words = text.split()
+    for i, word in enumerate(words):
+        if 'bank' in word.lower():
+            if i > 0:
+                extracted['counterparty'] = ' '.join(words[i-1:i+1]).title()
+            break
+        elif any(corp_word in word.lower() for corp_word in ['corp', 'company', 'inc']):
+            if i > 0:
+                extracted['counterparty'] = ' '.join(words[i-1:i+1]).title()
+            break
+    
+    # Maturity
+    maturity_match = re.search(r'(\d+)\s*years?', text_lower)
+    if maturity_match:
+        extracted['maturity_years'] = int(maturity_match.group(1))
+    
+    return extracted
+
+def get_missing_info() -> list:
+    """Get list of missing information needed for calculation"""
+    info = st.session_state.extracted_info
+    missing = []
+    
+    if 'notional' not in info:
+        missing.append("Trade notional amount (e.g., $10M, $100 million)")
+    if 'asset_class' not in info:
+        missing.append("Asset class (Interest Rate Swap, FX Forward, Credit, etc.)")
+    if 'counterparty' not in info:
+        missing.append("Counterparty name")
+    if 'counterparty_type' not in info and 'counterparty' in info:
+        missing.append("Counterparty type (Bank, Corporation, Government)")
+    if 'maturity_years' not in info:
+        missing.append("Trade maturity (e.g., 5 years, 2Y)")
+    
+    return missing
+
+def attempt_rwa_calculation() -> str:
+    """Attempt to calculate RWA with available information"""
+    info = st.session_state.extracted_info
+    
+    if 'notional' not in info or 'asset_class' not in info:
+        return "I need at least the notional amount and asset class to calculate RWA. Please provide these details."
+    
+    # Make assumptions for missing data
+    assumptions = {}
+    
+    counterparty_name = info.get('counterparty', 'Generic Counterparty')
+    if 'counterparty_type' not in info:
+        if 'bank' in counterparty_name.lower():
+            assumptions['counterparty_type'] = CounterpartyType.BANK
+        else:
+            assumptions['counterparty_type'] = CounterpartyType.CORPORATE
+    
+    # Create calculation objects
+    counterparty_info = CounterpartyInfo(
+        name=counterparty_name,
+        country="US",  # Default assumption
+        legal_code="LEI123456789",
+        legal_code_description="Generic Entity",
+        counterparty_type=assumptions.get('counterparty_type', CounterpartyType.CORPORATE)
+    )
+    
+    trade = Trade(
+        trade_id="AI-001",
+        counterparty=counterparty_name,
+        asset_class=info['asset_class'],
+        trade_type=TradeType.SWAP,
+        notional=info['notional'],
+        currency=info.get('currency', 'USD'),
+        underlying="Generic",
+        maturity_date=datetime.now() + timedelta(days=int(info.get('maturity_years', 5) * 365)),
+        mtm_value=0
+    )
+    
+    netting_set = NettingSet(
+        netting_set_id="AI-NS-001",
+        counterparty_info=counterparty_info,
+        trades=[trade],
+        is_margined=False
+    )
+    
+    # Calculate
+    try:
+        result = st.session_state.enhanced_agent.calculate_structured_saccr(netting_set, [])
+        if result.get('validation_failed'):
+            return "Calculation failed validation. Please provide more complete information."
+        
+        response = "## 📊 SA-CCR RWA Calculation\n\n"
+        if assumptions:
+            response += "**Assumptions made:**\n"
+            for key, value in assumptions.items():
+                response += f"• {key.replace('_', ' ').title()}: {value.value if hasattr(value, 'value') else value}\n"
+            response += "\n"
+        
+        response += result['structured_output']
+        return response
+        
+    except Exception as e:
+        return f"Calculation error: {str(e)}. Please provide more details about your trades."
 
 def process_intelligent_query(user_input: str) -> str:
     """Intelligently process user input, extract info, and ask for missing details"""
