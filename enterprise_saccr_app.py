@@ -2674,10 +2674,11 @@ def process_ai_question(question: str):
             </div>
             """, unsafe_allow_html=True)
             
+            answer_text = answer.replace('\n', '<br>')
             st.markdown(f"""
             <div class="ai-response">
                 <strong>🤖 Expert Analysis:</strong><br>
-                {answer.replace('\n', '<br>')}
+                {answer_text}
             </div>
             """, unsafe_allow_html=True)
             
