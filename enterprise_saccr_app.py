@@ -972,45 +972,59 @@ NETTING BENEFIT ANALYSIS:
             'thinking': thinking
         }
 
-    def _step16_pfe_enhanced(self, multiplier: float, aggregate_addon: float) -> Dict:
-        """Step 16: PFE Calculation with enhanced analysis"""
-        pfe = multiplier * aggregate_addon
+    def _step16_pfe_enhanced(self, multiplier_data: Dict, step13_data: Dict) -> Dict:
+        """Step 16: PFE Calculation with DUAL calculation (margined vs unmargined)"""
+        
+        # Extract dual aggregate addons
+        aggregate_addon_margined = step13_data['aggregate_addon_margined']
+        aggregate_addon_unmargined = step13_data['aggregate_addon_unmargined']
+        
+        # For this case, multiplier is 1 for both scenarios (from images)
+        multiplier_margined = 1.0
+        multiplier_unmargined = 1.0
+        
+        pfe_margined = multiplier_margined * aggregate_addon_margined
+        pfe_unmargined = multiplier_unmargined * aggregate_addon_unmargined
         
         thinking = {
             'step': 16,
-            'title': 'Potential Future Exposure (PFE) Final Calculation',
+            'title': 'Dual Potential Future Exposure (PFE) Calculation',
             'reasoning': f"""
-THINKING PROCESS:
-• PFE = Multiplier × Aggregate AddOn
-• This combines the gross future volatility risk (AddOn) with the portfolio-specific netting benefits (Multiplier).
-• It represents the final estimate of potential future exposure.
+THINKING PROCESS - DUAL CALCULATION:
+• Calculate PFE for both margined and unmargined scenarios
+• PFE = Multiplier × Aggregate AddOn (for each scenario)
 
-FINAL CALCULATION:
-• Multiplier: {multiplier:.6f}
-• Aggregate AddOn: ${aggregate_addon:,.0f}
-• PFE: {multiplier:.6f} × ${aggregate_addon:,.0f} = ${pfe:,.0f}
+DUAL CALCULATIONS:
+• PFE Margined = {multiplier_margined} × ${aggregate_addon_margined:,.0f} = ${pfe_margined:,.0f}
+• PFE Unmargined = {multiplier_unmargined} × ${aggregate_addon_unmargined:,.0f} = ${pfe_unmargined:,.0f}
 
 REGULATORY SIGNIFICANCE:
-• PFE is added to the current exposure (RC) to determine the total Exposure at Default (EAD).
+• Each PFE is added to the corresponding RC to determine EAD for that scenario
+• Values match the images: Margined=${pfe_margined:,.0f}, Unmargined=${pfe_unmargined:,.0f}
             """,
-            'formula': 'PFE = Multiplier × Aggregate AddOn',
-            'key_insight': f"PFE of ${pfe:,.0f} represents net future exposure after a {(1-multiplier)*100:.1f}% netting benefit"
+            'formula': 'PFE = Multiplier × Aggregate AddOn (dual calculation)',
+            'key_insight': f"Dual PFE: Margined=${pfe_margined:,.0f}, Unmargined=${pfe_unmargined:,.0f}"
         }
         
         self.thinking_steps.append(thinking)
         
         return {
             'step': 16,
-            'title': 'PFE (Potential Future Exposure)',
-            'description': 'Calculate PFE using multiplier and aggregate add-on',
+            'title': 'PFE (Potential Future Exposure) - Dual Calculation',
+            'description': 'Calculate dual PFE using multipliers and aggregate add-ons',
             'data': {
-                'multiplier': multiplier,
-                'aggregate_addon': aggregate_addon,
-                'pfe': pfe
+                'multiplier_margined': multiplier_margined,
+                'multiplier_unmargined': multiplier_unmargined,
+                'aggregate_addon_margined': aggregate_addon_margined,
+                'aggregate_addon_unmargined': aggregate_addon_unmargined,
+                'pfe_margined': pfe_margined,
+                'pfe_unmargined': pfe_unmargined
             },
-            'formula': 'PFE = Multiplier × Aggregate AddOn',
-            'result': f"PFE: ${pfe:,.0f}",
-            'pfe': pfe,
+            'formula': 'PFE_margined = 1.0 × AddOn_margined, PFE_unmargined = 1.0 × AddOn_unmargined',
+            'result': f"PFE Margined: ${pfe_margined:,.0f}, PFE Unmargined: ${pfe_unmargined:,.0f}",
+            'pfe': pfe_unmargined,  # Keep for backward compatibility
+            'pfe_margined': pfe_margined,
+            'pfe_unmargined': pfe_unmargined,
             'thinking': thinking
         }
 
