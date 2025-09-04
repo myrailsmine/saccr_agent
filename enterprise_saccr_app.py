@@ -3342,15 +3342,18 @@ def extract_portfolio_info_from_question(question: str) -> Dict:
     for pattern in dollar_patterns:
         matches = re.findall(pattern, question_lower)
         for match in matches:
-            amount = float(match[0].replace(',', ''))
-            if len(match) > 1:
-                multiplier = match[1]
-                if 'million' in multiplier or 'mil' in multiplier or 'm' == multiplier:
-                    amount *= 1_000_000
-                elif 'billion' in multiplier or 'bil' in multiplier or 'b' == multiplier:
-                    amount *= 1_000_000_000
-                elif 'thousand' in multiplier or 'k' == multiplier:
-                    amount *= 1_000
+            if isinstance(match, tuple):
+                amount = float(match[0].replace(',', ''))
+                if len(match) > 1 and match[1]:
+                    multiplier = match[1]
+                    if 'million' in multiplier or 'mil' in multiplier or 'm' == multiplier:
+                        amount *= 1_000_000
+                    elif 'billion' in multiplier or 'bil' in multiplier or 'b' == multiplier:
+                        amount *= 1_000_000_000
+                    elif 'thousand' in multiplier or 'k' == multiplier:
+                        amount *= 1_000
+            else:
+                amount = float(match.replace(',', ''))
             notionals.append(amount)
     
     # Extract asset classes
