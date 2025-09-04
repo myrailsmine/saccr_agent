@@ -2584,25 +2584,90 @@ def enhanced_ai_assistant_page():
             if st.button("⚖️ Regulatory Compliance"):
                 process_ai_question("Explain the key regulatory compliance requirements for SA-CCR implementation, including common pitfalls and best practices.")
     
-    # Custom Question Input
+    # Enhanced Question Input with Format Options
     st.markdown("### 🎤 Ask Your Question")
+    
+    # Check if we have calculation data for enhanced format
+    has_calc_data = 'saccr_result' in st.session_state and 'trades_input' in st.session_state
+    
+    if has_calc_data:
+        st.success("✅ Enhanced format available - Your questions can now include comprehensive analysis dashboards!")
+    else:
+        st.info("💡 For enhanced analysis format, please run a calculation first in the Enhanced SA-CCR Calculator.")
     
     user_question = st.text_area(
         "Ask any SA-CCR related question:",
-        placeholder="e.g., How does the supervisory correlation affect the final capital requirement?",
+        placeholder="e.g., Provide a comprehensive breakdown of my SA-CCR calculation with optimization recommendations",
         height=100
     )
     
-    col1, col2 = st.columns([3, 1])
+    # Response format selection
+    if has_calc_data:
+        response_format = st.radio(
+            "Response Format:",
+            ["🎯 Enhanced Dashboard (Same as Calculate SACCR)", "💬 Text Response Only"],
+            help="Enhanced Dashboard provides the same rich format as the Calculate Enhanced SACCR results"
+        )
+    
+    col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
         if st.button("🚀 Get AI Analysis", type="primary") and user_question:
-            process_ai_question(user_question)
+            # Force enhanced format if selected
+            if has_calc_data and "Enhanced Dashboard" in response_format:
+                display_ai_enhanced_analysis(user_question)
+            else:
+                process_ai_question(user_question)
     
     with col2:
         if st.button("🗑️ Clear History"):
             if 'ai_history' in st.session_state:
                 st.session_state.ai_history = []
             st.rerun()
+    
+    with col3:
+        if st.button("📊 View Last Calculation") and has_calc_data:
+            st.markdown("### 📊 Current Calculation Results")
+            result = st.session_state.saccr_result
+            col_a, col_b, col_c = st.columns(3)
+            with col_a:
+                st.metric("EAD", f"${result['final_results']['exposure_at_default']:,.0f}")
+            with col_b:
+                st.metric("RWA", f"${result['final_results']['risk_weighted_assets']:,.0f}")
+            with col_c:
+                st.metric("Capital", f"${result['final_results']['capital_requirement']:,.0f}")
+    
+    # Sample enhanced questions for users with calculation data
+    if has_calc_data:
+        with st.expander("🎯 Enhanced Analysis Questions (Full Dashboard Format)", expanded=False):
+            st.markdown("""
+            **Try these questions for comprehensive dashboard responses:**
+            
+            📊 **Calculation Analysis:**
+            - "Provide a comprehensive breakdown of my SA-CCR calculation"
+            - "Show me the complete step-by-step methodology with visualizations"
+            - "Analyze my calculation results with detailed risk components"
+            
+            🎯 **Optimization Focus:**
+            - "How can I optimize this portfolio to reduce capital requirements?"
+            - "What are the key optimization levers for my current calculation?"
+            - "Analyze capital efficiency and provide improvement recommendations"
+            
+            ⚖️ **Risk Analysis:**
+            - "Break down my risk exposure components with visualizations"
+            - "Analyze the current vs future risk in my portfolio"
+            - "Show me the risk contribution by trade and asset class"
+            """)
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                if st.button("📊 Comprehensive Analysis"):
+                    display_ai_enhanced_analysis("Provide a comprehensive breakdown of my SA-CCR calculation with detailed risk analysis and optimization recommendations")
+            with col2:
+                if st.button("🎯 Optimization Focus"):
+                    display_ai_enhanced_analysis("How can I optimize this portfolio to reduce capital requirements? Show me all optimization levers with quantitative impacts")
+            with col3:
+                if st.button("⚖️ Risk Breakdown"):
+                    display_ai_enhanced_analysis("Analyze my risk exposure components in detail, including current vs future risk and trade-level contributions")
     
     # Display conversation history
     if 'ai_history' in st.session_state and st.session_state.ai_history:
