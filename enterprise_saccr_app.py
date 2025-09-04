@@ -3023,9 +3023,25 @@ def process_ai_question(question: str):
         with st.expander("🧮 **Step 3: SA-CCR Calculation Execution (24 Steps)**", expanded=True):
             st.markdown("**Running comprehensive SA-CCR calculation with full 24-step methodology...**")
             
+            # Show progress
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
             try:
+                status_text.text("🔄 Extracting portfolio information...")
+                progress_bar.progress(25)
+                
+                status_text.text("🔄 Creating trade objects...")
+                progress_bar.progress(50)
+                
+                status_text.text("🔄 Running SA-CCR calculation (24 steps)...")
+                progress_bar.progress(75)
+                
                 # Run calculation from natural language with additional info
                 calc_result = run_saccr_calculation_from_natural_language(question, additional_info)
+                
+                progress_bar.progress(100)
+                status_text.text("✅ Calculation completed successfully!")
                 
                 if calc_result['extraction_success']:
                     st.success("✅ Portfolio information successfully extracted and calculation completed!")
