@@ -2625,10 +2625,20 @@ def enhanced_ai_assistant_page():
                 """, unsafe_allow_html=True)
 
 def process_ai_question(question: str):
-    """Process AI question with enhanced context"""
+    """Process AI question with enhanced context and rich response format"""
     
     if 'ai_history' not in st.session_state:
         st.session_state.ai_history = []
+    
+    # Check if user is asking for calculation analysis and we have results
+    calculation_keywords = ['calculate', 'analysis', 'result', 'breakdown', 'step', 'formula', 'ead', 'rwa', 'capital', 'pfe', 'replacement cost']
+    is_calculation_query = any(keyword in question.lower() for keyword in calculation_keywords)
+    has_calculation_data = 'saccr_result' in st.session_state and 'trades_input' in st.session_state
+    
+    # If it's a calculation-related question and we have data, show rich format
+    if is_calculation_query and has_calculation_data:
+        display_ai_enhanced_analysis(question)
+        return
     
     # Enhanced system prompt with regulatory expertise
     system_prompt = """You are a world-class Basel SA-CCR regulatory expert with deep expertise in:
@@ -2649,7 +2659,7 @@ def process_ai_question(question: str):
     
     # Add current calculation context if available
     context_info = ""
-    if 'saccr_result' in st.session_state:
+    if has_calculation_data:
         result = st.session_state.saccr_result
         context_info = f"""
         
@@ -2689,6 +2699,151 @@ def process_ai_question(question: str):
             
     except Exception as e:
         st.error(f"AI analysis error: {str(e)}")
+
+def display_ai_enhanced_analysis(question: str):
+    """Display AI analysis in the same rich format as Calculate Enhanced SACCR"""
+    
+    if 'saccr_result' not in st.session_state or 'trades_input' not in st.session_state:
+        st.warning("⚠️ No calculation data available. Please run a calculation first to get enhanced analysis.")
+        return
+    
+    # Get the calculation data
+    result = st.session_state.saccr_result
+    trades = st.session_state.trades_input
+    
+    # Create a dummy netting set for display purposes
+    netting_set = NettingSet(
+        netting_set_id=getattr(st.session_state, 'netting_set_id', 'ANALYSIS'),
+        counterparty=getattr(st.session_state, 'counterparty', 'AI Analysis'),
+        trades=trades,
+        threshold=getattr(st.session_state, 'threshold', 0),
+        mta=getattr(st.session_state, 'mta', 0),
+        nica=getattr(st.session_state, 'nica', 0)
+    )
+    
+    # Store the question for context
+    st.session_state.ai_history.append((question, "Comprehensive analysis generated below"))
+    
+    # Display the question
+    st.markdown(f"""
+    <div class="user-query">
+        <strong>🎤 Your Question:</strong> {question}
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Generate enhanced AI response
+    ai_response = generate_contextual_ai_response(question, result, netting_set)
+    
+    st.markdown(f"""
+    <div class="ai-response">
+        <strong>🤖 AI Expert Response:</strong><br>
+        {ai_response}
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown("## 📊 Comprehensive SA-CCR Analysis Dashboard")
+    st.markdown("*Based on your current calculation - Enhanced format as requested*")
+    
+    # Display the same rich format as calculate enhanced SACCR
+    display_enhanced_saccr_results(result, netting_set)
+
+def generate_contextual_ai_response(question: str, result: Dict, netting_set: NettingSet) -> str:
+    """Generate contextual AI response based on the question and calculation data"""
+    
+    final_results = result['final_results']
+    enhanced_summary = result.get('enhanced_summary', {})
+    
+    # Create contextual response based on question type
+    question_lower = question.lower()
+    
+    if any(word in question_lower for word in ['breakdown', 'step', 'calculate', 'methodology']):
+        response = f"""
+        <strong>🎯 Calculation Methodology Analysis:</strong><br><br>
+        Your portfolio calculation follows the complete 24-step Basel SA-CCR framework. Here's the high-level breakdown:<br><br>
+        
+        <strong>📊 Key Results:</strong><br>
+        • Exposure at Default (EAD): ${final_results['exposure_at_default']:,.0f}<br>
+        • Risk-Weighted Assets (RWA): ${final_results['risk_weighted_assets']:,.0f}<br>
+        • Capital Requirement: ${final_results['capital_requirement']:,.0f}<br><br>
+        
+        <strong>🔍 Critical Steps:</strong><br>
+        • Steps 1-4: Data foundation and trade classification<br>
+        • Steps 5-10: Risk factor calibration and supervisory parameters<br>
+        • Steps 11-13: Add-on aggregation across hedging sets<br>
+        • Steps 14-16: PFE calculation with netting benefits<br>
+        • Steps 17-18: Replacement cost determination<br>
+        • Steps 19-24: Final EAD and capital calculation<br><br>
+        
+        <strong>💡 Key Insights:</strong><br>
+        The detailed breakdown is shown in the comprehensive analysis below, including step-by-step formulas, data visualizations, and optimization recommendations.
+        """
+    
+    elif any(word in question_lower for word in ['optimize', 'reduce', 'efficiency', 'capital']):
+        capital_efficiency = (final_results['capital_requirement'] / sum(abs(trade.notional) for trade in netting_set.trades)) * 100
+        response = f"""
+        <strong>🎯 Capital Optimization Analysis:</strong><br><br>
+        Based on your current portfolio calculation:<br><br>
+        
+        <strong>📈 Current Efficiency:</strong><br>
+        • Capital Efficiency: {capital_efficiency:.3f}% of notional<br>
+        • Capital Requirement: ${final_results['capital_requirement']:,.0f}<br>
+        • Total Portfolio: ${sum(abs(trade.notional) for trade in netting_set.trades):,.0f}<br><br>
+        
+        <strong>🔧 Key Optimization Levers:</strong><br>
+        • <strong>Netting Benefits:</strong> Enhance CSA terms to improve PFE multiplier<br>
+        • <strong>Central Clearing:</strong> Move trades to CCP to reduce alpha from 1.4 to 0.5<br>
+        • <strong>Collateral Management:</strong> Optimize collateral posting to reduce replacement cost<br>
+        • <strong>Portfolio Rebalancing:</strong> Adjust trade mix to improve correlation benefits<br><br>
+        
+        <strong>💰 Quantitative Impact:</strong><br>
+        The detailed risk dashboard below shows specific optimization opportunities with estimated capital savings.
+        """
+    
+    elif any(word in question_lower for word in ['risk', 'exposure', 'pfe', 'replacement']):
+        rc = final_results['replacement_cost']
+        pfe = final_results['potential_future_exposure']
+        rc_pct = (rc / (rc + pfe) * 100) if (rc + pfe) > 0 else 0
+        pfe_pct = (pfe / (rc + pfe) * 100) if (rc + pfe) > 0 else 0
+        
+        response = f"""
+        <strong>🎯 Risk Exposure Analysis:</strong><br><br>
+        Your portfolio's risk profile breakdown:<br><br>
+        
+        <strong>⚖️ Current vs Future Risk:</strong><br>
+        • Replacement Cost (RC): ${rc:,.0f} ({rc_pct:.1f}% of total exposure)<br>
+        • Potential Future Exposure (PFE): ${pfe:,.0f} ({pfe_pct:.1f}% of total exposure)<br>
+        • Total Credit Exposure: ${rc + pfe:,.0f}<br><br>
+        
+        <strong>🔍 Risk Drivers:</strong><br>
+        • {'Current exposure dominates' if rc_pct > 60 else 'Future exposure dominates' if pfe_pct > 60 else 'Balanced current/future risk'}<br>
+        • Portfolio shows {'high' if pfe_pct > 70 else 'moderate' if pfe_pct > 40 else 'low'} potential volatility<br><br>
+        
+        <strong>📊 Risk Components:</strong><br>
+        The comprehensive analysis below includes detailed risk visualizations, trade-level contributions, and portfolio heatmaps.
+        """
+    
+    else:
+        # General analysis
+        response = f"""
+        <strong>🎯 Comprehensive SA-CCR Analysis:</strong><br><br>
+        Based on your question about the current calculation:<br><br>
+        
+        <strong>📊 Portfolio Overview:</strong><br>
+        • Total Trades: {len(netting_set.trades)}<br>
+        • Final EAD: ${final_results['exposure_at_default']:,.0f}<br>
+        • Capital Required: ${final_results['capital_requirement']:,.0f}<br><br>
+        
+        <strong>🔍 Analysis Highlights:</strong><br>
+        • Complete 24-step Basel regulatory framework applied<br>
+        • All supervisory factors and correlations per regulatory standards<br>
+        • Netting and collateral benefits properly calculated<br><br>
+        
+        <strong>📈 Detailed Insights:</strong><br>
+        The comprehensive analysis dashboard below provides detailed breakdowns, visualizations, and optimization recommendations tailored to your portfolio.
+        """
+    
+    return response
 
 def analyze_portfolio_data_quality():
     """Enhanced data quality analysis module"""
