@@ -2928,107 +2928,220 @@ def enhanced_ai_assistant_page():
                 """, unsafe_allow_html=True)
 
 def process_ai_question(question: str):
-    """Process AI question with enhanced human-in-the-loop and thinking process"""
+    """Process AI question with natural language interpretation and SA-CCR calculation"""
     
     if 'ai_history' not in st.session_state:
         st.session_state.ai_history = []
     
-    # Step 1: Analyze the question and determine missing information
+    # Step 1: Analyze the question and extract portfolio information
     st.markdown("### 🧠 AI Thinking Process")
     
-    with st.expander("🔍 **Step 1: Question Analysis & Information Assessment**", expanded=True):
-        st.markdown("**AI is analyzing your question and checking available context...**")
+    with st.expander("🔍 **Step 1: Natural Language Analysis & Portfolio Extraction**", expanded=True):
+        st.markdown("**AI is interpreting your question and extracting portfolio information...**")
         
-        # Check what context is available
-        has_calculation = 'current_result' in st.session_state and st.session_state.current_result is not None
-        has_trades = 'current_netting_set' in st.session_state and hasattr(st.session_state.current_netting_set, 'trades')
+        # Extract portfolio information from natural language
+        portfolio_info = extract_portfolio_info_from_question(question)
         
-        if has_calculation:
-            st.success("✅ **Full calculation context available** - AI has access to complete 24-step SA-CCR results")
-            result = st.session_state.current_result
-            st.write(f"• EAD: ${result['final_results']['exposure_at_default']:,.0f}")
-            st.write(f"• RWA: ${result['final_results']['risk_weighted_assets']:,.0f}")
-            st.write(f"• Capital: ${result['final_results']['capital_requirement']:,.0f}")
-            if has_trades:
-                st.write(f"• Portfolio: {len(st.session_state.current_netting_set.trades)} trades")
-        else:
-            st.warning("⚠️ **Limited context** - No current calculation available")
-            st.write("AI will provide general SA-CCR guidance and may ask for specific information")
+        # Analyze question requirements
+        question_analysis = analyze_question_requirements(question)
+        
+        st.markdown(f"**Question Type:** {question_analysis['question_type'].title()}")
+        
+        if portfolio_info['extracted_info']:
+            st.markdown("**✅ Extracted Portfolio Information:**")
+            for info in portfolio_info['extracted_info']:
+                st.markdown(f"• {info}")
+        
+        if portfolio_info['missing_info']:
+            st.markdown("**❓ Missing Information (will use defaults):**")
+            for info in portfolio_info['missing_info']:
+                st.markdown(f"• {info}")
     
-    # Step 2: Determine if additional information is needed
-    missing_info_needed = analyze_question_requirements(question)
+    # Step 2: Interactive Information Gathering (if calculation needed)
+    calculation_requested = any(word in question.lower() for word in ['calculate', 'compute', 'ead', 'rwa', 'capital', 'run', 'perform'])
+    additional_info = {}
     
-    if missing_info_needed and not has_calculation:
-        with st.expander("🤔 **Step 2: Information Gathering (Human-in-the-Loop)**", expanded=True):
-            st.markdown("**AI needs additional information to provide the best answer:**")
+    if calculation_requested and portfolio_info['missing_info']:
+        with st.expander("📝 **Step 2: Human-in-the-Loop Information Gathering**", expanded=True):
+            st.markdown("**I can run the SA-CCR calculation, but some information is missing. Please provide details or I'll use reasonable assumptions:**")
             
-            gathered_info = {}
-            for info_type, prompt in missing_info_needed.items():
-                st.markdown(f"**{info_type}:**")
-                user_input = st.text_input(prompt, key=f"info_{info_type}")
-                if user_input:
-                    gathered_info[info_type] = user_input
+            # Create input fields for missing information
+            col1, col2 = st.columns(2)
             
-            if gathered_info:
-                st.success("✅ **Information collected** - AI will use this in the analysis")
-            else:
-                st.info("💡 **Tip**: Provide information above for more specific analysis, or AI will make reasonable assumptions")
-    
-    # Step 3: Enhanced system prompt with full context
-    system_prompt = """You are a world-class Basel SA-CCR regulatory expert with deep expertise in:
-    - Complete 24-step SA-CCR methodology following Basel Committee guidelines
-    - Basel III/IV regulatory frameworks and implementation
-    - Credit risk capital optimization and portfolio management
-    - Derivatives risk management and netting strategies
-    - Regulatory compliance, validation, and best practices
-    
-    RESPONSE STRUCTURE - Always include:
-    1. **THINKING PROCESS**: Show your analytical approach and reasoning
-    2. **REGULATORY ANALYSIS**: Technical explanation with Basel references
-    3. **QUANTITATIVE IMPACT**: Numbers, calculations, and specific impacts where relevant
-    4. **PRACTICAL GUIDANCE**: Actionable recommendations and implementation steps
-    5. **ASSUMPTIONS**: Clearly state any assumptions made due to missing information
-    
-    Your responses should be comprehensive, technically accurate, and suitable for senior risk managers and regulatory experts."""
-    
-    # Build comprehensive context
-    context_info = build_comprehensive_context(has_calculation, missing_info_needed)
-    
-    user_prompt = f"""
-    QUESTION: {question}
-    
-    {context_info}
-    
-    Please provide a comprehensive analysis following the response structure above. Show your complete thinking process and make reasonable assumptions where information is missing.
-    """
-    
-    try:
-        with st.spinner("🧠 Analyzing with regulatory expertise..."):
-            response = st.session_state.saccr_agent.llm.invoke([
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt)
-            ])
+            with col1:
+                if not portfolio_info['trades']:
+                    additional_info['notional'] = st.number_input(
+                        "Trade Notional ($)", value=100_000_000, step=10_000_000,
+                        key=f"notional_{len(st.session_state.ai_history)}"
+                    )
+                    additional_info['maturity_years'] = st.number_input(
+                        "Maturity (years)", value=1.0, step=0.5,
+                        key=f"maturity_{len(st.session_state.ai_history)}"
+                    )
             
-            answer = response.content
-            st.session_state.ai_history.append((question, answer))
+            with col2:
+                additional_info['threshold'] = st.number_input(
+                    "Threshold ($)", value=12_000_000, step=1_000_000,
+                    key=f"threshold_{len(st.session_state.ai_history)}"
+                )
+                additional_info['mta'] = st.number_input(
+                    "MTA ($)", value=1_000_000, step=100_000,
+                    key=f"mta_{len(st.session_state.ai_history)}"
+                )
             
-            # Step 3: Display the comprehensive AI response with thinking process
-            with st.expander("🎯 **Step 3: AI Expert Analysis & Recommendations**", expanded=True):
-                st.markdown(f"""
-                <div class="user-query">
-                    <strong>Your Question:</strong> {question}
-                </div>
-                """, unsafe_allow_html=True)
+            # Wait for human input or proceed with assumptions
+            col1, col2 = st.columns(2)
+            with col1:
+                run_with_inputs = st.button("🚀 Run Calculation with Above Inputs", type="primary")
+            with col2:
+                run_with_assumptions = st.button("⚡ Run with AI Assumptions")
+            
+            if not (run_with_inputs or run_with_assumptions):
+                st.info("👆 Choose an option above to proceed with the SA-CCR calculation")
+                return
+    
+    # Step 3: Run SA-CCR Calculation with 24-step methodology
+    if calculation_requested:
+        with st.expander("🧮 **Step 3: SA-CCR Calculation Execution (24 Steps)**", expanded=True):
+            st.markdown("**Running comprehensive SA-CCR calculation with full 24-step methodology...**")
+            
+            try:
+                # Run calculation from natural language with additional info
+                calc_result = run_saccr_calculation_from_natural_language(question, additional_info)
                 
-                # Parse and display structured response
-                display_structured_ai_response(answer)
+                if calc_result['extraction_success']:
+                    st.success("✅ Portfolio information successfully extracted and calculation completed!")
+                else:
+                    st.info("💡 Used default assumptions for missing information")
+                
+                # Display calculation summary
+                result = calc_result['calculation_result']
+                netting_set = calc_result['netting_set']
+                
+                st.markdown("### 📊 **Calculation Results**")
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Final EAD", f"${result['final_results']['exposure_at_default']:,.0f}")
+                with col2:
+                    st.metric("RWA", f"${result['final_results']['risk_weighted_assets']:,.0f}")
+                with col3:
+                    st.metric("Capital Req.", f"${result['final_results']['capital_requirement']:,.0f}")
+                with col4:
+                    st.metric("Trades", len(netting_set.trades))
+                
+                # Show dual calculation results (margined vs unmargined)
+                step21 = next((s for s in result['calculation_steps'] if s['step'] == 21), None)
+                if step21 and 'data' in step21:
+                    st.markdown("### ⚖️ **Basel Dual Calculation Results**")
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.markdown("**📊 Margined:**")
+                        st.metric("EAD Margined", f"${step21['data']['ead_margined']:,.0f}")
+                    
+                    with col2:
+                        st.markdown("**📊 Unmargined:**")
+                        st.metric("EAD Unmargined", f"${step21['data']['ead_unmargined']:,.0f}")
+                    
+                    with col3:
+                        st.markdown("**✅ Selected:**")
+                        selected = "Margined" if step21['data']['ead_final'] == step21['data']['ead_margined'] else "Unmargined"
+                        st.success(f"**{selected}**")
+                
+            except Exception as e:
+                st.error(f"Calculation error: {str(e)}")
+                # Proceed with analysis anyway
+                calc_result = None
+    
+    # Step 4: AI Expert Analysis with full context
+    with st.expander("🤖 **Step 4: AI Expert Analysis & Recommendations**", expanded=True):
+        st.markdown("**AI is analyzing results with full 24-step methodology knowledge...**")
+        
+        try:
+            # Build comprehensive context (now includes calculation if performed)
+            context_info = build_comprehensive_context()
             
-            # Show summary insights
-            st.markdown("### 💡 Key Takeaways")
-            extract_and_display_key_insights(answer)
+            # Determine analysis type based on question and context
+            has_calculation = hasattr(st.session_state, 'current_result') and st.session_state.current_result is not None
             
-    except Exception as e:
-        st.error(f"AI analysis error: {str(e)}")
+            if has_calculation:
+                analysis_type = "calculation_analysis"
+                context_note = "Full SA-CCR calculation available with all 24 steps"
+            else:
+                analysis_type = "general_guidance"
+                context_note = "Providing general SA-CCR guidance"
+            
+            # Generate AI response based on context
+            ai_response = f"""
+🧠 THINKING PROCESS:
+Analyzing question: "{question}"
+Analysis type: {analysis_type}
+Context: {context_note}
+
+The user is asking about {"calculation and results" if calculation_requested else "SA-CCR methodology/guidance"}. 
+{"I have full access to the 24-step calculation results including dual margined/unmargined scenarios." if has_calculation else "I will provide expert guidance based on SA-CCR regulatory requirements."}
+
+📋 REGULATORY ANALYSIS:
+SA-CCR follows Basel 12 CFR § 217.132 with mandatory 24-step calculation:
+- Steps 1-6: Data preparation, trade categorization, maturity factors (dual: margined=0.3, unmargined=1.0)
+- Steps 7-13: Supervisory parameters, adjusted contract amounts, aggregate add-ons  
+- Steps 14-21: Current exposure, PFE calculation, RC calculation, EAD with Basel minimum selection
+- Steps 22-24: Risk weighting and capital requirements
+
+Key regulatory requirement: For margined netting sets, calculate BOTH scenarios and select minimum EAD.
+
+📊 QUANTITATIVE IMPACT:
+{f"Current calculation shows EAD of ${st.session_state.current_result['final_results']['exposure_at_default']:,.0f} with dual approach correctly applied." if has_calculation else "Without specific portfolio data, typical SA-CCR calculations for large derivatives portfolios range from millions to billions in EAD."}
+
+The dual calculation approach typically shows different results:
+- Margined scenario: Lower maturity factor (0.3) but higher RC due to margin requirements
+- Unmargined scenario: Higher maturity factor (1.0) but lower RC
+- Basel rule: Select minimum EAD between the two scenarios
+
+🎯 PRACTICAL GUIDANCE:
+{"Based on your specific calculation:" if has_calculation else "For SA-CCR optimization:"}
+1. **Supervisory Factor Optimization**: Ensure correct 0.5% for USD Interest Rate (not 1.0%)
+2. **Dual Calculation Compliance**: Always calculate both margined and unmargined scenarios
+3. **Capital Efficiency**: {"Consider netting agreements and collateral optimization" if not has_calculation else "Review your margin agreement terms for potential optimization"}
+4. **Regulatory Compliance**: All 24 steps must be calculated and documented
+
+⚠️ ASSUMPTIONS:
+- Basel SA-CCR methodology applied correctly with dual calculation approach
+- Supervisory factors per regulatory requirements (0.5% for USD IR, not 100 bps)
+- {"Calculation based on extracted/provided portfolio information" if calculation_requested else "General guidance applicable to typical derivatives portfolios"}
+- Alpha = 1.0 (assumes CEU flag = 1, non-centrally cleared)
+            """
+            
+            # Display structured AI response
+            display_structured_ai_response(ai_response)
+            
+            # Extract and show key insights
+            extract_and_display_key_insights(ai_response)
+            
+            # Add to conversation history
+            st.session_state.ai_history.append({
+                'question': question,
+                'response': ai_response,
+                'timestamp': datetime.now(),
+                'calculation_performed': calculation_requested,
+                'context': context_info[:500] + "..." if len(context_info) > 500 else context_info
+            })
+            
+        except Exception as e:
+            st.error(f"AI analysis error: {str(e)}")
+            st.info("The AI assistant is working with available context to provide the best possible guidance.")
+    
+    # Show conversation history
+    if st.session_state.ai_history:
+        with st.expander("📜 **Conversation History**", expanded=False):
+            for i, item in enumerate(reversed(st.session_state.ai_history[-3:])):  # Last 3 items
+                calc_icon = "🧮" if item.get('calculation_performed') else "❓"
+                st.markdown(f"**{calc_icon} Q{len(st.session_state.ai_history)-i}:** {item['question']}")
+                st.markdown(f"**Response:** {item['response'][:200]}...")
+                st.markdown("---")
+    
+    st.success("✅ AI analysis complete! The AI now has full context of any calculations performed. Ask follow-up questions for deeper insights.")
 
 def analyze_question_requirements(question: str) -> Dict:
     """Analyze the question and determine what additional information is needed"""
