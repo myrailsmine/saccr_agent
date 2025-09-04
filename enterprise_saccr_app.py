@@ -2405,32 +2405,35 @@ def _create_enhanced_export_options(result: Dict, netting_set: NettingSet):
         )
 
 def load_reference_example():
-    """Load the reference example trade matching the Basel documentation exactly"""
+    """Load the reference example trade matching the images exactly"""
     st.session_state.trades_input = []
     st.session_state.collateral_input = []
     
-    # Exact reference trade from Basel SA-CCR documentation with correct MTM
+    # Exact reference trade from provided images with CoRef: 212784050, Master ID: 989187
     reference_trade = Trade(
         trade_id="2098474100",
         counterparty="Lowell Hotel Properties LLC",
         asset_class=AssetClass.INTEREST_RATE,
         trade_type=TradeType.SWAP,
-        notional=681578963,  # Exact notional from documentation
+        notional=681578963,  # Exact notional from images
         currency="USD",
         underlying="Interest rate",
         maturity_date=datetime.now() + timedelta(days=int(0.3 * 365)),  # ~0.3 years to match MF ≈ 0.5477
-        mtm_value=8382419,  # EXACT: From Step 14 Sum(V) = 8,382,419
+        mtm_value=8382419,  # EXACT: From Step 14 Sum(V) = 8,382,419 (images)
         delta=1.0
     )
     
     st.session_state.trades_input = [reference_trade]
     
-    # Set the correct netting set parameters from the reference example
+    # Set the correct netting set parameters from the images
+    st.session_state.reference_netting_set_id = "212784050000389187901"  # From images
+    st.session_state.reference_coref = "212784050"  # From images
+    st.session_state.reference_master_id = "989187"  # From images
     st.session_state.reference_threshold = 12000000  # $12M threshold
     st.session_state.reference_mta = 1000000        # $1M MTA  
     st.session_state.reference_nica = 0             # $0 NICA
     
-    st.success("✅ Loaded exact Basel SA-CCR reference example with MTM = $8,382,419")
+    st.success("✅ Loaded exact reference example from images (CoRef: 212784050, Master ID: 989187)")
 
 def _load_fx_template():
     """Load FX Forward template"""
