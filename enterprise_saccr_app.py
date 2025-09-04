@@ -3327,8 +3327,11 @@ def extract_portfolio_info_from_question(question: str) -> Dict:
     # Extract notional amounts
     import re
     
-    # Look for dollar amounts
+    # Look for dollar amounts and numeric amounts
     dollar_patterns = [
+        r'([0-9,]+\.?[0-9]*)\s*(million|mil|m)\b',  # Without $ sign
+        r'([0-9,]+\.?[0-9]*)\s*(billion|bil|b)\b',  # Without $ sign
+        r'([0-9,]+\.?[0-9]*)\s*(thousand|k)\b',     # Without $ sign
         r'\$([0-9,]+\.?[0-9]*)\s*(million|mil|m)\b',
         r'\$([0-9,]+\.?[0-9]*)\s*(billion|bil|b)\b', 
         r'\$([0-9,]+\.?[0-9]*)\s*(thousand|k)\b',
