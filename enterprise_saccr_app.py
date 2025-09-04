@@ -2956,7 +2956,7 @@ def process_ai_question(question: str):
             st.write("AI will provide general SA-CCR guidance and may ask for specific information")
     
     # Step 2: Determine if additional information is needed
-    missing_info_needed = analyze_question_requirements(question, has_calculation)
+    missing_info_needed = analyze_question_requirements(question)
     
     if missing_info_needed and not has_calculation:
         with st.expander("🤔 **Step 2: Information Gathering (Human-in-the-Loop)**", expanded=True):
