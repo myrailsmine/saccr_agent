@@ -3092,6 +3092,98 @@ def build_comprehensive_context(has_calculation: bool, missing_info_needed: dict
     
     return "\n".join(context_parts)
 
+def display_structured_ai_response(answer: str):
+    """Display AI response in structured format showing thinking process"""
+    
+    # Try to parse structured sections
+    sections = {
+        'THINKING PROCESS': '🧠',
+        'REGULATORY ANALYSIS': '📋', 
+        'QUANTITATIVE IMPACT': '📊',
+        'PRACTICAL GUIDANCE': '🎯',
+        'ASSUMPTIONS': '⚠️'
+    }
+    
+    current_section = None
+    section_content = {}
+    
+    for line in answer.split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Check if this line starts a new section
+        section_found = False
+        for section_name, emoji in sections.items():
+            if section_name.lower() in line.lower() and ('**' in line or '#' in line or ':' in line):
+                current_section = section_name
+                section_content[current_section] = []
+                section_found = True
+                break
+        
+        if not section_found and current_section:
+            section_content[current_section].append(line)
+    
+    # Display sections if found, otherwise display as single block
+    if section_content:
+        for section_name, emoji in sections.items():
+            if section_name in section_content and section_content[section_name]:
+                with st.container():
+                    st.markdown(f"**{emoji} {section_name}**")
+                    content = '\n'.join(section_content[section_name])
+                    if section_name == 'THINKING PROCESS':
+                        st.markdown(f"""
+                        <div class="thinking-process">
+                            {content.replace(chr(10), '<br>')}
+                        </div>
+                        """, unsafe_allow_html=True)
+                    elif section_name == 'QUANTITATIVE IMPACT':
+                        st.markdown(f"""
+                        <div class="calculation-detail">
+                            {content.replace(chr(10), '<br>')}
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(content)
+                    st.markdown("---")
+    else:
+        # Fallback: display as single response
+        answer_text = answer.replace('\n', '<br>')
+        st.markdown(f"""
+        <div class="ai-response">
+            <strong>🤖 Expert Analysis:</strong><br>
+            {answer_text}
+        </div>
+        """, unsafe_allow_html=True)
+
+def extract_and_display_key_insights(answer: str):
+    """Extract and display key insights from AI response"""
+    
+    # Look for key phrases that indicate important insights
+    insights = []
+    lines = answer.split('\n')
+    
+    for line in lines:
+        line = line.strip()
+        if any(keyword in line.lower() for keyword in ['key insight', 'important', 'critical', 'recommendation', 'optimize']):
+            if len(line) > 20 and len(line) < 200:  # Reasonable length for an insight
+                insights.append(line.replace('*', '').replace('#', '').strip())
+    
+    # If no specific insights found, extract first few substantive sentences
+    if not insights:
+        sentences = answer.replace('\n', ' ').split('.')
+        for sentence in sentences[:3]:
+            sentence = sentence.strip()
+            if len(sentence) > 30 and len(sentence) < 150:
+                insights.append(sentence + '.')
+    
+    # Display insights
+    if insights:
+        for i, insight in enumerate(insights[:3], 1):
+            st.markdown(f"**{i}.** {insight}")
+    else:
+        st.markdown("*Key insights will be highlighted here based on AI analysis*")
+
 def analyze_portfolio_data_quality():
     """Enhanced data quality analysis module"""
     
