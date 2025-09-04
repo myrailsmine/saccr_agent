@@ -1991,6 +1991,9 @@ def enhanced_complete_saccr_calculator():
             # Display enhanced results
             display_enhanced_saccr_results(result, netting_set)
             
+            # Notify user about enhanced AI analysis availability
+            st.info("💡 **New Feature**: Your calculation data is now available for enhanced AI analysis! Visit the AI Assistant for comprehensive dashboard-style responses to your questions.")
+            
         except Exception as e:
             st.error(f"❌ Calculation error: {str(e)}")
             st.exception(e)
