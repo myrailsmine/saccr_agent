@@ -3030,6 +3030,68 @@ def process_ai_question(question: str):
     except Exception as e:
         st.error(f"AI analysis error: {str(e)}")
 
+def analyze_question_requirements(question: str, has_calculation: bool) -> dict:
+    """Analyze what additional information might be needed for the question"""
+    
+    question_lower = question.lower()
+    missing_info = {}
+    
+    # If no calculation context, suggest key information
+    if not has_calculation:
+        if any(word in question_lower for word in ['calculate', 'ead', 'rwa', 'capital', 'exposure']):
+            missing_info['Portfolio Details'] = "What trades are in your portfolio? (notional, maturity, asset class)"
+            missing_info['Counterparty Info'] = "What type of counterparty? (bank, corporate, sovereign)"
+            missing_info['Netting Agreement'] = "Do you have a netting agreement? Any collateral posted?"
+        
+        if any(word in question_lower for word in ['optimize', 'reduce', 'improve']):
+            missing_info['Current Situation'] = "What is your current EAD/RWA that you want to optimize?"
+            missing_info['Constraints'] = "Any business constraints? (can't change counterparty, must keep trades, etc.)"
+        
+        if any(word in question_lower for word in ['margin', 'collateral', 'csa']):
+            missing_info['CSA Terms'] = "What are your current CSA terms? (threshold, MTA, eligible collateral)"
+    
+    return missing_info if missing_info else None
+
+def build_comprehensive_context(has_calculation: bool, missing_info_needed: dict) -> str:
+    """Build comprehensive context for AI analysis"""
+    
+    context_parts = []
+    
+    if has_calculation:
+        result = st.session_state.current_result
+        netting_set = st.session_state.current_netting_set
+        
+        context_parts.append("CURRENT CALCULATION CONTEXT:")
+        context_parts.append(f"- Final EAD: ${result['final_results']['exposure_at_default']:,.0f}")
+        context_parts.append(f"- Risk-Weighted Assets: ${result['final_results']['risk_weighted_assets']:,.0f}")
+        context_parts.append(f"- Capital Requirement: ${result['final_results']['capital_requirement']:,.0f}")
+        context_parts.append(f"- Portfolio: {len(netting_set.trades)} trades")
+        context_parts.append(f"- Counterparty: {netting_set.counterparty}")
+        context_parts.append(f"- Netting Set: {'Margined' if netting_set.threshold > 0 else 'Unmargined'}")
+        
+        # Add detailed calculation steps if available
+        if 'calculation_steps' in result:
+            context_parts.append("\nKEY CALCULATION COMPONENTS:")
+            for step in result['calculation_steps']:
+                if step['step'] in [13, 16, 18, 21, 24]:  # Key steps
+                    context_parts.append(f"- Step {step['step']} ({step['title']}): {step['result']}")
+        
+        # Add thinking steps if available
+        if 'thinking_steps' in result:
+            context_parts.append("\nAI THINKING INSIGHTS FROM CALCULATION:")
+            for thinking in result['thinking_steps'][:3]:  # Top 3 insights
+                if 'key_insight' in thinking:
+                    context_parts.append(f"- {thinking['title']}: {thinking['key_insight']}")
+    else:
+        context_parts.append("CONTEXT: No current calculation available - providing general SA-CCR guidance")
+        
+        if missing_info_needed:
+            context_parts.append("\nMISSING INFORMATION IDENTIFIED:")
+            for info_type, prompt in missing_info_needed.items():
+                context_parts.append(f"- {info_type}: {prompt}")
+    
+    return "\n".join(context_parts)
+
 def analyze_portfolio_data_quality():
     """Enhanced data quality analysis module"""
     
