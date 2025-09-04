@@ -1980,6 +1980,14 @@ def enhanced_complete_saccr_calculator():
             progress_bar.progress(100)
             status_text.text("✅ Calculation completed successfully!")
             
+            # Store results and netting set data for AI Assistant access
+            st.session_state.saccr_result = result
+            st.session_state.netting_set_id = netting_set_id
+            st.session_state.counterparty = counterparty
+            st.session_state.threshold = threshold
+            st.session_state.mta = mta
+            st.session_state.nica = nica
+            
             # Display enhanced results
             display_enhanced_saccr_results(result, netting_set)
             
