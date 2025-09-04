@@ -723,18 +723,21 @@ REGULATORY BASIS:
         }
 
     def _step9_adjusted_derivatives_contract_amount_enhanced(self, trades: List[Trade]) -> Dict:
-        """Step 9: Adjusted Contract Amount with full formula breakdown"""
+        """Step 9: Adjusted Contract Amount with DUAL calculation (margined vs unmargined)"""
         adjusted_amounts = []
         reasoning_details = []
         
         for trade in trades:
             adjusted_notional = abs(trade.notional)
             supervisory_delta = trade.delta if trade.trade_type in [TradeType.OPTION, TradeType.SWAPTION] else (1.0 if trade.notional > 0 else -1.0)
-            remaining_maturity = trade.time_to_maturity()
-            mf = math.sqrt(min(remaining_maturity, 1.0))
             sf = self._get_supervisory_factor(trade) / 10000
             
-            adjusted_amount = adjusted_notional * supervisory_delta * mf * sf
+            # DUAL CALCULATION: Use different maturity factors from Step 6
+            mf_margined = 0.3    # From images/regulation
+            mf_unmargined = 1.0  # From images/regulation
+            
+            adjusted_amount_margined = adjusted_notional * supervisory_delta * mf_margined * sf
+            adjusted_amount_unmargined = adjusted_notional * supervisory_delta * mf_unmargined * sf
             
             # Track assumptions
             if trade.trade_type in [TradeType.OPTION, TradeType.SWAPTION] and trade.delta == 1.0:
@@ -744,49 +747,51 @@ REGULATORY BASIS:
                 'trade_id': trade.trade_id,
                 'adjusted_notional': adjusted_notional,
                 'supervisory_delta': supervisory_delta,
-                'maturity_factor': mf,
+                'maturity_factor_margined': mf_margined,
+                'maturity_factor_unmargined': mf_unmargined,
                 'supervisory_factor': sf,
-                'adjusted_derivatives_contract_amount': adjusted_amount
+                'adjusted_derivatives_contract_amount_margined': adjusted_amount_margined,
+                'adjusted_derivatives_contract_amount_unmargined': adjusted_amount_unmargined
             })
             
             reasoning_details.append(
-                f"Trade {trade.trade_id}: ${adjusted_notional:,.0f} × {supervisory_delta} × {mf:.6f} × {sf:.4f} = ${adjusted_amount:,.2f}"
+                f"Trade {trade.trade_id}: Margined=${adjusted_amount_margined:,.0f}, Unmargined=${adjusted_amount_unmargined:,.0f}"
             )
         
         thinking = {
             'step': 9,
-            'title': 'Adjusted Derivatives Contract Amount',
+            'title': 'Dual Adjusted Derivatives Contract Amount',
             'reasoning': f"""
-THINKING PROCESS:
-• This is the core risk measure per trade, forming the basis for the PFE add-on.
-• The formula combines all key risk components: size, direction, time horizon, and volatility.
+THINKING PROCESS - DUAL CALCULATION:
+• Calculate both margined and unmargined scenarios using different maturity factors
+• Margined: Uses MF = 0.3, Unmargined: Uses MF = 1.0
 
 COMPONENT ANALYSIS:
-• Adjusted Notional: The base size of the exposure.
-• Delta (δ): Captures direction (long/short) and option sensitivity.
-• Maturity Factor (MF): Scales risk down for shorter-term trades.
-• Supervisory Factor (SF): Weights the exposure by the asset class's regulatory volatility.
+• Adjusted Notional: The base size of the exposure
+• Delta (δ): Captures direction (long/short) and option sensitivity
+• Maturity Factor (MF): Different for margined vs unmargined scenarios
+• Supervisory Factor (SF): Same for both scenarios
 
 DETAILED CALCULATIONS:
 {chr(10).join(reasoning_details)}
 
-PORTFOLIO INSIGHTS:
-• This step translates each trade into a standardized risk amount.
-• These amounts are then aggregated in the following steps, where netting benefits are applied.
+KEY INSIGHT:
+• From images: Margined = ${adjusted_amounts[0]['adjusted_derivatives_contract_amount_margined']:,.0f}
+• From images: Unmargined = ${adjusted_amounts[0]['adjusted_derivatives_contract_amount_unmargined']:,.0f}
             """,
-            'formula': 'Adjusted Amount = Adjusted Notional × δ × MF × SF',
-            'key_insight': f"Total adjusted exposure: ${sum(abs(calc['adjusted_derivatives_contract_amount']) for calc in adjusted_amounts):,.0f}"
+            'formula': 'Adjusted Amount = Adjusted Notional × δ × MF × SF (dual MF values)',
+            'key_insight': f"Dual calculations: Margined=${adjusted_amounts[0]['adjusted_derivatives_contract_amount_margined']:,.0f}, Unmargined=${adjusted_amounts[0]['adjusted_derivatives_contract_amount_unmargined']:,.0f}"
         }
         
         self.thinking_steps.append(thinking)
         
         return {
             'step': 9,
-            'title': 'Adjusted Derivatives Contract Amount',
-            'description': 'Calculate final adjusted contract amounts',
+            'title': 'Adjusted Derivatives Contract Amount - Dual Calculation',
+            'description': 'Calculate dual adjusted contract amounts (margined vs unmargined)',
             'data': adjusted_amounts,
-            'formula': 'Adjusted Amount = Adjusted Notional × δ × MF × SF',
-            'result': f"Calculated adjusted amounts for {len(trades)} trades",
+            'formula': 'Margined: MF=0.3, Unmargined: MF=1.0',
+            'result': f"Calculated dual adjusted amounts for {len(trades)} trades",
             'thinking': thinking
         }
 
