@@ -2928,42 +2928,79 @@ def enhanced_ai_assistant_page():
                 """, unsafe_allow_html=True)
 
 def process_ai_question(question: str):
-    """Process AI question with enhanced context"""
+    """Process AI question with enhanced human-in-the-loop and thinking process"""
     
     if 'ai_history' not in st.session_state:
         st.session_state.ai_history = []
     
-    # Enhanced system prompt with regulatory expertise
-    system_prompt = """You are a world-class Basel SA-CCR regulatory expert with deep expertise in:
-    - Complete 24-step SA-CCR methodology 
-    - Basel III/IV regulatory frameworks
-    - Credit risk capital optimization
-    - Derivatives risk management
-    - Regulatory compliance and implementation
+    # Step 1: Analyze the question and determine missing information
+    st.markdown("### 🧠 AI Thinking Process")
     
-    Provide detailed, technical, and actionable responses. Include:
-    1. Clear explanations of regulatory concepts
-    2. Quantitative impacts where relevant  
-    3. Practical implementation guidance
-    4. Optimization strategies and recommendations
-    5. Regulatory compliance considerations
-    
-    Your responses should be professional, comprehensive, and suitable for risk managers and regulatory experts."""
-    
-    # Add current calculation context if available
-    context_info = ""
-    if 'saccr_result' in st.session_state:
-        result = st.session_state.saccr_result
-        context_info = f"""
+    with st.expander("🔍 **Step 1: Question Analysis & Information Assessment**", expanded=True):
+        st.markdown("**AI is analyzing your question and checking available context...**")
         
-        CURRENT CALCULATION CONTEXT:
-        - EAD: ${result['final_results']['exposure_at_default']:,.0f}
-        - RWA: ${result['final_results']['risk_weighted_assets']:,.0f}
-        - Capital Required: ${result['final_results']['capital_requirement']:,.0f}
-        - Portfolio Size: {len(st.session_state.get('trades_input', []))} trades
-        """
+        # Check what context is available
+        has_calculation = 'current_result' in st.session_state and st.session_state.current_result is not None
+        has_trades = 'current_netting_set' in st.session_state and hasattr(st.session_state.current_netting_set, 'trades')
+        
+        if has_calculation:
+            st.success("✅ **Full calculation context available** - AI has access to complete 24-step SA-CCR results")
+            result = st.session_state.current_result
+            st.write(f"• EAD: ${result['final_results']['exposure_at_default']:,.0f}")
+            st.write(f"• RWA: ${result['final_results']['risk_weighted_assets']:,.0f}")
+            st.write(f"• Capital: ${result['final_results']['capital_requirement']:,.0f}")
+            if has_trades:
+                st.write(f"• Portfolio: {len(st.session_state.current_netting_set.trades)} trades")
+        else:
+            st.warning("⚠️ **Limited context** - No current calculation available")
+            st.write("AI will provide general SA-CCR guidance and may ask for specific information")
     
-    user_prompt = f"{question}{context_info}"
+    # Step 2: Determine if additional information is needed
+    missing_info_needed = analyze_question_requirements(question, has_calculation)
+    
+    if missing_info_needed and not has_calculation:
+        with st.expander("🤔 **Step 2: Information Gathering (Human-in-the-Loop)**", expanded=True):
+            st.markdown("**AI needs additional information to provide the best answer:**")
+            
+            gathered_info = {}
+            for info_type, prompt in missing_info_needed.items():
+                st.markdown(f"**{info_type}:**")
+                user_input = st.text_input(prompt, key=f"info_{info_type}")
+                if user_input:
+                    gathered_info[info_type] = user_input
+            
+            if gathered_info:
+                st.success("✅ **Information collected** - AI will use this in the analysis")
+            else:
+                st.info("💡 **Tip**: Provide information above for more specific analysis, or AI will make reasonable assumptions")
+    
+    # Step 3: Enhanced system prompt with full context
+    system_prompt = """You are a world-class Basel SA-CCR regulatory expert with deep expertise in:
+    - Complete 24-step SA-CCR methodology following Basel Committee guidelines
+    - Basel III/IV regulatory frameworks and implementation
+    - Credit risk capital optimization and portfolio management
+    - Derivatives risk management and netting strategies
+    - Regulatory compliance, validation, and best practices
+    
+    RESPONSE STRUCTURE - Always include:
+    1. **THINKING PROCESS**: Show your analytical approach and reasoning
+    2. **REGULATORY ANALYSIS**: Technical explanation with Basel references
+    3. **QUANTITATIVE IMPACT**: Numbers, calculations, and specific impacts where relevant
+    4. **PRACTICAL GUIDANCE**: Actionable recommendations and implementation steps
+    5. **ASSUMPTIONS**: Clearly state any assumptions made due to missing information
+    
+    Your responses should be comprehensive, technically accurate, and suitable for senior risk managers and regulatory experts."""
+    
+    # Build comprehensive context
+    context_info = build_comprehensive_context(has_calculation, missing_info_needed)
+    
+    user_prompt = f"""
+    QUESTION: {question}
+    
+    {context_info}
+    
+    Please provide a comprehensive analysis following the response structure above. Show your complete thinking process and make reasonable assumptions where information is missing.
+    """
     
     try:
         with st.spinner("🧠 Analyzing with regulatory expertise..."):
