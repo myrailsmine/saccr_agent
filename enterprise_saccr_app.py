@@ -1586,18 +1586,21 @@ CAPITAL CALCULATION:
         }
     
     def _step20_alpha(self, ceu_flag: int) -> Dict:
-        alpha = 1.4 # Alpha is fixed at 1.4 for SA-CCR
+        # Correct Alpha logic per Basel regulation
+        # If CEU flag = 0 (centrally cleared), Alpha = 1.4
+        # If CEU flag = 1 (non-centrally cleared), Alpha = 1.0
+        alpha = 1.4 if ceu_flag == 0 else 1.0
         
         return {
             'step': 20,
             'title': 'Alpha',
-            'description': 'Regulatory multiplier for SA-CCR',
+            'description': 'Regulatory multiplier based on CEU flag',
             'data': {
                 'ceu_flag': ceu_flag,
                 'alpha': alpha
             },
-            'formula': 'Alpha = 1.4 (fixed for SA-CCR)',
-            'result': f"Alpha: {alpha}",
+            'formula': 'Alpha = 1.4 if CEU=0 (centrally cleared), 1.0 if CEU=1 (non-centrally cleared)',
+            'result': f"Alpha: {alpha} (CEU flag: {ceu_flag})",
             'alpha': alpha
         }
     
