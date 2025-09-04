@@ -2807,10 +2807,37 @@ def show_reference_example():
         """)
 
 def enhanced_ai_assistant_page():
-    """Enhanced AI assistant with comprehensive SA-CCR expertise"""
+    """Enhanced AI assistant with comprehensive SA-CCR expertise and human-in-the-loop"""
     
     st.markdown("## 🤖 AI SA-CCR Expert Assistant")
-    st.markdown("*Advanced regulatory analysis with real-time LLM integration*")
+    st.markdown("*Intelligent SA-CCR analysis with full 24-step calculation context and interactive guidance*")
+    
+    # Initialize AI history and conversation state
+    if 'ai_history' not in st.session_state:
+        st.session_state.ai_history = []
+    if 'ai_conversation_state' not in st.session_state:
+        st.session_state.ai_conversation_state = {}
+    if 'pending_calculation' not in st.session_state:
+        st.session_state.pending_calculation = None
+    
+    # Check for current calculation context
+    has_current_calculation = hasattr(st.session_state, 'current_result') and st.session_state.current_result is not None
+    
+    # Display current calculation context
+    if has_current_calculation:
+        st.success("✅ **AI has full context of your current SA-CCR calculation**")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            final_ead = st.session_state.current_result['final_results']['exposure_at_default']
+            st.metric("Current EAD", f"${final_ead:,.0f}")
+        with col2:
+            trades_count = len(st.session_state.current_netting_set.trades) if hasattr(st.session_state, 'current_netting_set') else 0
+            st.metric("Trades", trades_count)
+        with col3:
+            counterparty = st.session_state.current_netting_set.counterparty if hasattr(st.session_state, 'current_netting_set') else "N/A"
+            st.write(f"**Counterparty:** {counterparty}")
+    else:
+        st.info("💡 **Tip**: Run a calculation first to give AI full context, or ask general SA-CCR questions")
     
     # Check LLM connection status
     if st.session_state.saccr_agent.connection_status != "connected":
@@ -2821,7 +2848,7 @@ def enhanced_ai_assistant_page():
         st.write("• Step-by-step methodology guides")
         return
     
-    # AI Assistant Interface
+    # Enhanced AI Assistant Interface with Human-in-the-Loop
     st.markdown("### 💬 Expert Consultation")
     
     # Quick question templates
