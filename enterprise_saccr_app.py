@@ -3197,6 +3197,233 @@ def extract_and_display_key_insights(response_text: str):
         for insight in insights[:5]:  # Top 5 insights
             st.markdown(f"• {insight}")
 
+def extract_portfolio_info_from_question(question: str) -> Dict:
+    """Extract portfolio information from natural language question"""
+    
+    question_lower = question.lower()
+    portfolio_info = {
+        'trades': [],
+        'counterparty': None,
+        'threshold': None,
+        'mta': None,
+        'nica': 0,
+        'extracted_info': [],
+        'missing_info': []
+    }
+    
+    # Extract notional amounts
+    import re
+    
+    # Look for dollar amounts
+    dollar_patterns = [
+        r'\$([0-9,]+\.?[0-9]*)\s*(million|mil|m)\b',
+        r'\$([0-9,]+\.?[0-9]*)\s*(billion|bil|b)\b', 
+        r'\$([0-9,]+\.?[0-9]*)\s*(thousand|k)\b',
+        r'\$([0-9,]+\.?[0-9]*)\b'
+    ]
+    
+    notionals = []
+    for pattern in dollar_patterns:
+        matches = re.findall(pattern, question_lower)
+        for match in matches:
+            amount = float(match[0].replace(',', ''))
+            if len(match) > 1:
+                multiplier = match[1]
+                if 'million' in multiplier or 'mil' in multiplier or 'm' == multiplier:
+                    amount *= 1_000_000
+                elif 'billion' in multiplier or 'bil' in multiplier or 'b' == multiplier:
+                    amount *= 1_000_000_000
+                elif 'thousand' in multiplier or 'k' == multiplier:
+                    amount *= 1_000
+            notionals.append(amount)
+    
+    # Extract asset classes
+    asset_class = AssetClass.INTEREST_RATE  # Default
+    if 'fx' in question_lower or 'foreign exchange' in question_lower or 'currency' in question_lower:
+        asset_class = AssetClass.FX
+    elif 'equity' in question_lower or 'stock' in question_lower:
+        asset_class = AssetClass.EQUITY
+    elif 'credit' in question_lower:
+        asset_class = AssetClass.CREDIT
+    elif 'commodity' in question_lower:
+        asset_class = AssetClass.COMMODITY
+    
+    # Extract trade types
+    trade_type = TradeType.SWAP  # Default
+    if 'option' in question_lower:
+        trade_type = TradeType.OPTION
+    elif 'forward' in question_lower:
+        trade_type = TradeType.FORWARD
+    elif 'future' in question_lower:
+        trade_type = TradeType.FUTURE
+    
+    # Extract maturity information
+    maturity_years = 1.0  # Default
+    maturity_patterns = [
+        r'([0-9]+\.?[0-9]*)\s*year',
+        r'([0-9]+\.?[0-9]*)\s*yr',
+        r'([0-9]+)\s*month'
+    ]
+    
+    for pattern in maturity_patterns:
+        matches = re.findall(pattern, question_lower)
+        if matches:
+            if 'month' in pattern:
+                maturity_years = float(matches[0]) / 12
+            else:
+                maturity_years = float(matches[0])
+            break
+    
+    # Extract counterparty information
+    counterparty = "Major Bank"  # Default
+    if 'bank' in question_lower:
+        counterparty = "Major Bank"
+    elif 'corporate' in question_lower or 'company' in question_lower:
+        counterparty = "Corporate Counterparty"
+    elif 'fund' in question_lower:
+        counterparty = "Investment Fund"
+    
+    # Extract threshold/margin information
+    threshold = 12_000_000  # Default $12M
+    mta = 1_000_000        # Default $1M
+    
+    # Look for margin/threshold amounts
+    if 'threshold' in question_lower or 'margin' in question_lower:
+        # Try to find amounts near these keywords
+        threshold_patterns = [
+            r'threshold[^0-9]*\$?([0-9,]+\.?[0-9]*)\s*(million|mil|m)?\b',
+            r'margin[^0-9]*\$?([0-9,]+\.?[0-9]*)\s*(million|mil|m)?\b'
+        ]
+        
+        for pattern in threshold_patterns:
+            matches = re.findall(pattern, question_lower)
+            if matches:
+                amount = float(matches[0][0].replace(',', ''))
+                if len(matches[0]) > 1 and matches[0][1]:
+                    if 'million' in matches[0][1] or 'mil' in matches[0][1] or 'm' == matches[0][1]:
+                        amount *= 1_000_000
+                threshold = amount
+                break
+    
+    # Create trades based on extracted information
+    if notionals:
+        for i, notional in enumerate(notionals):
+            trade = {
+                'trade_id': f"EXTRACTED_{i+1}",
+                'notional': notional,
+                'asset_class': asset_class,
+                'trade_type': trade_type,
+                'maturity_years': maturity_years,
+                'counterparty': counterparty
+            }
+            portfolio_info['trades'].append(trade)
+            portfolio_info['extracted_info'].append(f"Trade {i+1}: ${notional:,.0f} {asset_class.value} {trade_type.value}")
+    
+    # Set portfolio parameters
+    portfolio_info['counterparty'] = counterparty
+    portfolio_info['threshold'] = threshold
+    portfolio_info['mta'] = mta
+    portfolio_info['extracted_info'].extend([
+        f"Counterparty: {counterparty}",
+        f"Threshold: ${threshold:,.0f}",
+        f"MTA: ${mta:,.0f}"
+    ])
+    
+    # Determine missing information
+    if not notionals:
+        portfolio_info['missing_info'].append("Trade notional amounts")
+    if 'maturity' not in question_lower and 'year' not in question_lower:
+        portfolio_info['missing_info'].append("Trade maturities")
+    if 'threshold' not in question_lower and 'margin' not in question_lower:
+        portfolio_info['missing_info'].append("Margin agreement terms (threshold, MTA)")
+    
+    return portfolio_info
+
+def create_trades_from_extracted_info(portfolio_info: Dict) -> List[Trade]:
+    """Create Trade objects from extracted portfolio information"""
+    
+    trades = []
+    
+    for trade_info in portfolio_info['trades']:
+        trade = Trade(
+            trade_id=trade_info['trade_id'],
+            counterparty=trade_info['counterparty'],
+            asset_class=trade_info['asset_class'],
+            trade_type=trade_info['trade_type'],
+            notional=trade_info['notional'],
+            currency="USD",  # Default
+            underlying=trade_info['asset_class'].value,
+            maturity_date=datetime.now() + timedelta(days=int(trade_info['maturity_years'] * 365)),
+            mtm_value=trade_info['notional'] * 0.01,  # Assume 1% MTM
+            delta=1.0
+        )
+        trades.append(trade)
+    
+    return trades
+
+def run_saccr_calculation_from_natural_language(question: str, additional_info: Dict = None) -> Dict:
+    """Run SA-CCR calculation based on natural language input with 24-step methodology"""
+    
+    # Step 1: Extract portfolio information from question
+    portfolio_info = extract_portfolio_info_from_question(question)
+    
+    # Step 2: Apply additional information if provided
+    if additional_info:
+        if 'notional' in additional_info:
+            portfolio_info['trades'][0]['notional'] = additional_info['notional']
+        if 'threshold' in additional_info:
+            portfolio_info['threshold'] = additional_info['threshold']
+        if 'mta' in additional_info:
+            portfolio_info['mta'] = additional_info['mta']
+        if 'maturity_years' in additional_info:
+            for trade in portfolio_info['trades']:
+                trade['maturity_years'] = additional_info['maturity_years']
+    
+    # Step 3: Create Trade objects
+    trades = create_trades_from_extracted_info(portfolio_info)
+    
+    if not trades:
+        # Create a default trade if nothing was extracted
+        default_trade = Trade(
+            trade_id="DEFAULT_001",
+            counterparty="Major Bank",
+            asset_class=AssetClass.INTEREST_RATE,
+            trade_type=TradeType.SWAP,
+            notional=100_000_000,  # $100M default
+            currency="USD",
+            underlying="Interest rate",
+            maturity_date=datetime.now() + timedelta(days=365),
+            mtm_value=1_000_000,  # $1M default
+            delta=1.0
+        )
+        trades = [default_trade]
+        portfolio_info['extracted_info'].append("Used default trade: $100M Interest Rate Swap")
+    
+    # Step 4: Create NettingSet
+    netting_set = NettingSet(
+        netting_set_id=f"NL_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+        counterparty=portfolio_info['counterparty'] or "Major Bank",
+        trades=trades,
+        threshold=portfolio_info['threshold'] or 12_000_000,
+        mta=portfolio_info['mta'] or 1_000_000,
+        nica=portfolio_info['nica'] or 0
+    )
+    
+    # Step 5: Run comprehensive SA-CCR calculation with all 24 steps
+    agent = ComprehensiveSACCRAgent()
+    result = agent.calculate_comprehensive_saccr(netting_set)
+    
+    # Step 6: Store in session state for AI context
+    st.session_state.current_result = result
+    st.session_state.current_netting_set = netting_set
+    
+    return {
+        'portfolio_info': portfolio_info,
+        'netting_set': netting_set,
+        'calculation_result': result,
+        'extraction_success': len(portfolio_info['extracted_info']) > 0
+    }
+
 def analyze_portfolio_data_quality():
     """Enhanced data quality analysis module"""
     
