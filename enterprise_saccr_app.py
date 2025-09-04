@@ -3012,20 +3012,20 @@ def process_ai_question(question: str):
             answer = response.content
             st.session_state.ai_history.append((question, answer))
             
-            # Display the response
-            st.markdown(f"""
-            <div class="user-query">
-                <strong>Your Question:</strong> {question}
-            </div>
-            """, unsafe_allow_html=True)
+            # Step 3: Display the comprehensive AI response with thinking process
+            with st.expander("🎯 **Step 3: AI Expert Analysis & Recommendations**", expanded=True):
+                st.markdown(f"""
+                <div class="user-query">
+                    <strong>Your Question:</strong> {question}
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Parse and display structured response
+                display_structured_ai_response(answer)
             
-            answer_text = answer.replace('\n', '<br>')
-            st.markdown(f"""
-            <div class="ai-response">
-                <strong>🤖 Expert Analysis:</strong><br>
-                {answer_text}
-            </div>
-            """, unsafe_allow_html=True)
+            # Show summary insights
+            st.markdown("### 💡 Key Takeaways")
+            extract_and_display_key_insights(answer)
             
     except Exception as e:
         st.error(f"AI analysis error: {str(e)}")
