@@ -3359,7 +3359,7 @@ def extract_portfolio_info_from_question(question: str) -> Dict:
     # Extract asset classes
     asset_class = AssetClass.INTEREST_RATE  # Default
     if 'fx' in question_lower or 'foreign exchange' in question_lower or 'currency' in question_lower:
-        asset_class = AssetClass.FX
+        asset_class = AssetClass.FOREIGN_EXCHANGE  # Correct enum name
     elif 'equity' in question_lower or 'stock' in question_lower:
         asset_class = AssetClass.EQUITY
     elif 'credit' in question_lower:
