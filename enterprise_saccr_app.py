@@ -3184,6 +3184,173 @@ def extract_and_display_key_insights(answer: str):
     else:
         st.markdown("*Key insights will be highlighted here based on AI analysis*")
 
+def analyze_question_requirements(question: str) -> Dict:
+    """Analyze the question and determine what additional information is needed"""
+    
+    question_lower = question.lower()
+    
+    # Categorize question types
+    calculation_keywords = ['calculate', 'compute', 'ead', 'rwa', 'capital', 'exposure']
+    optimization_keywords = ['reduce', 'optimize', 'improve', 'lower', 'minimize', 'efficient']
+    regulatory_keywords = ['compliance', 'regulation', 'basel', 'requirement', 'rule']
+    technical_keywords = ['formula', 'methodology', 'step', 'calculation', 'approach']
+    
+    question_type = 'general'
+    if any(keyword in question_lower for keyword in calculation_keywords):
+        question_type = 'calculation'
+    elif any(keyword in question_lower for keyword in optimization_keywords):
+        question_type = 'optimization'
+    elif any(keyword in question_lower for keyword in regulatory_keywords):
+        question_type = 'regulatory'
+    elif any(keyword in question_lower for keyword in technical_keywords):
+        question_type = 'technical'
+    
+    # Determine required information based on question type
+    required_info = []
+    has_calculation_context = hasattr(st.session_state, 'current_result') and st.session_state.current_result is not None
+    
+    if question_type in ['calculation', 'optimization'] and not has_calculation_context:
+        required_info.extend([
+            'Portfolio composition (trade details)',
+            'Counterparty information',
+            'Netting agreement terms (threshold, MTA, NICA)',
+            'Collateral details (if any)'
+        ])
+    
+    if question_type == 'optimization':
+        required_info.extend([
+            'Current business constraints',
+            'Risk appetite',
+            'Preferred optimization approach'
+        ])
+    
+    return {
+        'question_type': question_type,
+        'required_info': required_info,
+        'has_context': has_calculation_context,
+        'urgency': 'high' if question_type in ['calculation', 'optimization'] else 'medium'
+    }
+
+def build_comprehensive_context() -> str:
+    """Build comprehensive context from current calculation results"""
+    
+    if not hasattr(st.session_state, 'current_result') or st.session_state.current_result is None:
+        return "No current calculation context available."
+    
+    result = st.session_state.current_result
+    netting_set = st.session_state.current_netting_set if hasattr(st.session_state, 'current_netting_set') else None
+    
+    context_parts = []
+    
+    # Basic portfolio information
+    if netting_set:
+        context_parts.append(f"""
+CURRENT PORTFOLIO CONTEXT:
+- Netting Set ID: {netting_set.netting_set_id}
+- Counterparty: {netting_set.counterparty}
+- Number of trades: {len(netting_set.trades)}
+- Total notional: ${sum(abs(trade.notional) for trade in netting_set.trades):,.0f}
+- Threshold: ${netting_set.threshold:,.0f}
+- MTA: ${netting_set.mta:,.0f}
+- NICA: ${netting_set.nica:,.0f}
+        """)
+    
+    # Final results
+    final_results = result['final_results']
+    context_parts.append(f"""
+FINAL SA-CCR RESULTS:
+- Replacement Cost: ${final_results['replacement_cost']:,.0f}
+- Potential Future Exposure: ${final_results['potential_future_exposure']:,.0f}
+- Exposure at Default: ${final_results['exposure_at_default']:,.0f}
+- Risk Weighted Assets: ${final_results['risk_weighted_assets']:,.0f}
+- Capital Requirement: ${final_results['capital_requirement']:,.0f}
+    """)
+    
+    # Key calculation insights from thinking steps
+    if 'thinking_steps' in result and result['thinking_steps']:
+        context_parts.append("KEY CALCULATION INSIGHTS:")
+        for thinking in result['thinking_steps'][:5]:  # Top 5 insights
+            if thinking.get('key_insight'):
+                context_parts.append(f"- Step {thinking['step']}: {thinking['key_insight']}")
+    
+    # Data quality issues
+    if 'data_quality_issues' in result and result['data_quality_issues']:
+        context_parts.append(f"""
+DATA QUALITY NOTES:
+- {len(result['data_quality_issues'])} data quality issues identified
+- Key assumptions made in calculation
+        """)
+    
+    return "\n".join(context_parts)
+
+def display_structured_ai_response(response_text: str):
+    """Parse and display structured AI response with enhanced formatting"""
+    
+    # Split response into sections based on markers
+    sections = {
+        'thinking': '',
+        'regulatory': '',
+        'quantitative': '',
+        'guidance': '',
+        'assumptions': ''
+    }
+    
+    current_section = 'thinking'
+    
+    for line in response_text.split('\n'):
+        line = line.strip()
+        if 'THINKING PROCESS' in line.upper() or '🧠' in line:
+            current_section = 'thinking'
+        elif 'REGULATORY' in line.upper() or '📋' in line:
+            current_section = 'regulatory'
+        elif 'QUANTITATIVE' in line.upper() or '📊' in line:
+            current_section = 'quantitative'
+        elif 'GUIDANCE' in line.upper() or 'PRACTICAL' in line.upper() or '🎯' in line:
+            current_section = 'guidance'
+        elif 'ASSUMPTION' in line.upper() or '⚠️' in line:
+            current_section = 'assumptions'
+        else:
+            sections[current_section] += line + '\n'
+    
+    # Display sections with enhanced formatting
+    if sections['thinking'].strip():
+        with st.expander("🧠 **THINKING PROCESS**", expanded=True):
+            st.markdown(sections['thinking'].strip())
+    
+    if sections['regulatory'].strip():
+        with st.expander("📋 **REGULATORY ANALYSIS**", expanded=True):
+            st.markdown(sections['regulatory'].strip())
+    
+    if sections['quantitative'].strip():
+        with st.expander("📊 **QUANTITATIVE IMPACT**", expanded=True):
+            st.markdown(sections['quantitative'].strip())
+    
+    if sections['guidance'].strip():
+        with st.expander("🎯 **PRACTICAL GUIDANCE**", expanded=True):
+            st.markdown(sections['guidance'].strip())
+    
+    if sections['assumptions'].strip():
+        with st.expander("⚠️ **ASSUMPTIONS & LIMITATIONS**", expanded=True):
+            st.markdown(sections['assumptions'].strip())
+
+def extract_and_display_key_insights(response_text: str):
+    """Extract and highlight key insights from AI response"""
+    
+    insights = []
+    
+    # Look for bullet points, numbered lists, or key phrases
+    for line in response_text.split('\n'):
+        line = line.strip()
+        if (line.startswith('•') or line.startswith('-') or 
+            'key' in line.lower() or 'important' in line.lower() or
+            'recommend' in line.lower()):
+            insights.append(line)
+    
+    if insights:
+        st.markdown("### 🎯 **Key Takeaways**")
+        for insight in insights[:5]:  # Top 5 insights
+            st.markdown(f"• {insight}")
+
 def analyze_portfolio_data_quality():
     """Enhanced data quality analysis module"""
     
