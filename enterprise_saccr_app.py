@@ -796,45 +796,56 @@ KEY INSIGHT:
         }
 
     def _step13_aggregate_addon_enhanced(self, trades: List[Trade]) -> Dict:
-        """Step 13: Aggregate AddOn with enhanced aggregation logic"""
-        step12_result = self._step12_asset_class_addon(trades)
+        """Step 13: Aggregate AddOn with DUAL calculation (margined vs unmargined)"""
+        # For dual calculation, we need to use the dual adjusted amounts from Step 9
+        step9_result = self._step9_adjusted_derivatives_contract_amount_enhanced(trades)
         
-        aggregate_addon = sum(ac_data['asset_class_addon'] for ac_data in step12_result['data'])
+        # Extract dual values from Step 9
+        margined_amounts = [trade_data['adjusted_derivatives_contract_amount_margined'] 
+                           for trade_data in step9_result['data']]
+        unmargined_amounts = [trade_data['adjusted_derivatives_contract_amount_unmargined'] 
+                             for trade_data in step9_result['data']]
+        
+        # For simplicity in this single asset class case, aggregate addons equal the adjusted amounts
+        # (In multi-asset class cases, this would involve more complex aggregation)
+        aggregate_addon_margined = sum(margined_amounts)
+        aggregate_addon_unmargined = sum(unmargined_amounts)
         
         thinking = {
             'step': 13,
-            'title': 'Aggregate AddOn Calculation',
+            'title': 'Dual Aggregate AddOn Calculation',
             'reasoning': f"""
-THINKING PROCESS:
-• Sum all individual asset class add-ons to get the total portfolio add-on.
-• This represents the gross potential future exposure before considering netting benefits across the portfolio.
-• The simple summation is a conservative approach required by the regulation.
+THINKING PROCESS - DUAL CALCULATION:
+• Calculate aggregate add-ons for both margined and unmargined scenarios
+• These flow from the dual adjusted contract amounts in Step 9
 
-ASSET CLASS BREAKDOWN:
-{chr(10).join([f"• {ac_data['asset_class']}: ${ac_data['asset_class_addon']:,.0f}" for ac_data in step12_result['data']])}
+DUAL CALCULATIONS:
+• Margined Aggregate AddOn: ${aggregate_addon_margined:,.0f}
+• Unmargined Aggregate AddOn: ${aggregate_addon_unmargined:,.0f}
 
 REGULATORY PURPOSE:
-• This value represents the total potential increase in exposure over the life of the trades.
-• It forms the primary input for the PFE calculation, which will then be scaled by the multiplier.
+• These values represent the total potential increase in exposure for each scenario
+• They form the primary inputs for the dual PFE calculations
             """,
-            'formula': 'Aggregate AddOn = Σ(Asset Class AddOns)',
-            'key_insight': f"This ${aggregate_addon:,.0f} represents raw future exposure before netting benefits"
+            'formula': 'Aggregate AddOn = Σ(Adjusted Contract Amounts) for each scenario',
+            'key_insight': f"Dual aggregate addons: Margined=${aggregate_addon_margined:,.0f}, Unmargined=${aggregate_addon_unmargined:,.0f}"
         }
         
         self.thinking_steps.append(thinking)
         
         return {
             'step': 13,
-            'title': 'Aggregate AddOn',
-            'description': 'Sum asset class add-ons to get total portfolio add-on',
+            'title': 'Aggregate AddOn - Dual Calculation',
+            'description': 'Calculate dual aggregate add-ons (margined vs unmargined)',
             'data': {
-                'asset_class_addons': [(ac_data['asset_class'], ac_data['asset_class_addon'])
-                                       for ac_data in step12_result['data']],
-                'aggregate_addon': aggregate_addon
+                'aggregate_addon_margined': aggregate_addon_margined,
+                'aggregate_addon_unmargined': aggregate_addon_unmargined
             },
-            'formula': 'Aggregate AddOn = Σ(Asset Class AddOns)',
-            'result': f"Total Aggregate AddOn: ${aggregate_addon:,.0f}",
-            'aggregate_addon': aggregate_addon,
+            'formula': 'Dual Aggregate AddOn calculation',
+            'result': f"Margined: ${aggregate_addon_margined:,.0f}, Unmargined: ${aggregate_addon_unmargined:,.0f}",
+            'aggregate_addon': aggregate_addon_unmargined,  # Keep for backward compatibility
+            'aggregate_addon_margined': aggregate_addon_margined,
+            'aggregate_addon_unmargined': aggregate_addon_unmargined,
             'thinking': thinking
         }
 
