@@ -2992,13 +2992,31 @@ def process_ai_question(question: str):
             # Wait for human input or proceed with assumptions
             col1, col2 = st.columns(2)
             with col1:
-                run_with_inputs = st.button("🚀 Run Calculation with Above Inputs", type="primary")
+                run_with_inputs = st.button("🚀 Run Calculation with Above Inputs", type="primary", key=f"run_inputs_{len(st.session_state.ai_history)}")
             with col2:
-                run_with_assumptions = st.button("⚡ Run with AI Assumptions")
+                run_with_assumptions = st.button("⚡ Run with AI Assumptions", key=f"run_assumptions_{len(st.session_state.ai_history)}")
             
-            if not (run_with_inputs or run_with_assumptions):
+            # Set session state to proceed with calculation
+            if run_with_inputs:
+                st.session_state.proceed_with_calculation = True
+                st.session_state.use_user_inputs = True
+            elif run_with_assumptions:
+                st.session_state.proceed_with_calculation = True
+                st.session_state.use_user_inputs = False
+            
+            # Check if we should proceed
+            should_proceed = st.session_state.get('proceed_with_calculation', False)
+            
+            if not should_proceed:
                 st.info("👆 Choose an option above to proceed with the SA-CCR calculation")
                 return
+            else:
+                # Clear the flag and proceed
+                st.session_state.proceed_with_calculation = False
+                if st.session_state.get('use_user_inputs', False):
+                    st.success("✅ Proceeding with your provided inputs...")
+                else:
+                    st.success("✅ Proceeding with AI assumptions...")
     
     # Step 3: Run SA-CCR Calculation with 24-step methodology
     if calculation_requested:
