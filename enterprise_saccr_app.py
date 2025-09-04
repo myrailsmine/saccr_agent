@@ -2113,10 +2113,10 @@ def display_enhanced_saccr_results(result: Dict, netting_set: NettingSet):
                 </div>
                 """, unsafe_allow_html=True)
     
-    # Enhanced Step-by-Step Breakdown with Visualizations
+    # Enhanced Step-by-Step Breakdown with Persistent Navigation
     with st.expander("🔍 Complete 24-Step Calculation Breakdown", expanded=True):
         
-        # Create interactive step navigation
+        # Create interactive step navigation with session state
         step_categories = {
             "📊 Data & Classification (1-4)": [1, 2, 3, 4],
             "⚙️ Risk Calculations (5-10)": [5, 6, 7, 8, 9, 10],
@@ -2126,8 +2126,25 @@ def display_enhanced_saccr_results(result: Dict, netting_set: NettingSet):
             "🏦 Final EAD & Capital (19-24)": [19, 20, 21, 22, 23, 24]
         }
         
-        selected_category = st.selectbox("Select calculation phase:", list(step_categories.keys()))
+        # Initialize selected category in session state
+        if 'selected_step_category' not in st.session_state:
+            st.session_state.selected_step_category = "📊 Data & Classification (1-4)"
+        
+        # Use session state for the selectbox to prevent resets
+        selected_category = st.selectbox(
+            "Select calculation phase:", 
+            list(step_categories.keys()),
+            index=list(step_categories.keys()).index(st.session_state.selected_step_category),
+            key="step_category_selector"
+        )
+        
+        # Update session state
+        st.session_state.selected_step_category = selected_category
+        
         step_numbers = step_categories[selected_category]
+        
+        # Display steps for selected category
+        st.markdown(f"### {selected_category}")
         
         for step_num in step_numbers:
             if step_num <= len(result['calculation_steps']):
@@ -2154,6 +2171,16 @@ def display_enhanced_saccr_results(result: Dict, netting_set: NettingSet):
                     if step_num in [9, 11, 12, 13, 15, 16, 18, 21, 24] and isinstance(step_data.get('data'), dict):
                         with st.expander(f"📊 Detailed Data - Step {step_num}", expanded=False):
                             st.json(step_data['data'])
+        
+        # Quick navigation buttons
+        st.markdown("### 🚀 Quick Navigation")
+        cols = st.columns(len(step_categories))
+        for i, (category_name, steps) in enumerate(step_categories.items()):
+            with cols[i]:
+                category_short = category_name.split(' ')[0] + f" ({steps[0]}-{steps[-1]})"
+                if st.button(category_short, key=f"nav_btn_{i}"):
+                    st.session_state.selected_step_category = category_name
+                    st.rerun()
     
     # Enhanced AI Analysis
     if result.get('ai_explanation'):
