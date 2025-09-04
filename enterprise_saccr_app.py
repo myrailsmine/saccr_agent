@@ -1668,7 +1668,7 @@ CAPITAL CALCULATION:
         elif trade.asset_class == AssetClass.COMMODITY:
             return self.supervisory_factors[AssetClass.COMMODITY]['energy']
         
-        return 100.0  # Default 100bps
+        return 50.0  # Default 50bps (0.5%)
 
 # ==============================================================================
 # ENHANCED STREAMLIT APPLICATION
