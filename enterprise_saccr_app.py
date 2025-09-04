@@ -2648,6 +2648,38 @@ def show_reference_example():
                 with col4:
                     st.metric("RWA", f"${final_results['risk_weighted_assets']:,.0f}")
                 
+                # Add Basel Dual Calculation Summary
+                st.markdown("---")
+                st.markdown("### ⚖️ Basel Dual Calculation Summary (Margined vs Unmargined)")
+                st.markdown("*Both scenarios calculated as required by Basel regulation - minimum EAD selected*")
+                
+                # Extract dual calculation data from steps
+                step18 = next((s for s in result['calculation_steps'] if s['step'] == 18), None)
+                step21 = next((s for s in result['calculation_steps'] if s['step'] == 21), None)
+                
+                if step18 and step21:
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.markdown("**📊 Margined Approach:**")
+                        st.metric("RC Margined", f"${step18['data']['rc_margined']:,.0f}")
+                        st.metric("EAD Margined", f"${step21['data']['ead_margined']:,.0f}")
+                    
+                    with col2:
+                        st.markdown("**📊 Unmargined Approach:**")
+                        st.metric("RC Unmargined", f"${step18['data']['rc_unmargined']:,.0f}")
+                        st.metric("EAD Unmargined", f"${step21['data']['ead_unmargined']:,.0f}")
+                    
+                    with col3:
+                        final_ead = step21['data']['ead_final']
+                        selected = "Margined" if final_ead == step21['data']['ead_margined'] else "Unmargined"
+                        st.markdown("**✅ Basel Selection:**")
+                        st.success(f"**{selected}**")
+                        st.metric("Final EAD", f"${final_ead:,.0f}")
+                        st.caption("(Minimum rule applied)")
+                
+                st.markdown("---")
+                
                 # Show calculation verification
                 with st.expander("🔍 Step-by-Step Validation", expanded=True):
                     key_steps = [5, 6, 8, 9, 13, 15, 16, 18, 21, 24]
