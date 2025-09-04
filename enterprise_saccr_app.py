@@ -2001,6 +2001,10 @@ def enhanced_complete_saccr_calculator():
 def display_enhanced_saccr_results(result: Dict, netting_set: NettingSet):
     """Display comprehensive SA-CCR calculation results with enhanced visualizations"""
     
+    # Store results in session state to prevent loss on rerun
+    st.session_state.current_result = result
+    st.session_state.current_netting_set = netting_set
+    
     st.markdown("## 📊 Enhanced SA-CCR Calculation Results")
     
     final_results = result['final_results']
