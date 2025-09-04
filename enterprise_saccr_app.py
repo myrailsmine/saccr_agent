@@ -2961,7 +2961,12 @@ def process_ai_question(question: str):
     calculation_requested = any(word in question.lower() for word in ['calculate', 'compute', 'ead', 'rwa', 'capital', 'run', 'perform'])
     additional_info = {}
     
-    if calculation_requested and portfolio_info['missing_info']:
+    # Initialize session state for this question if not exists
+    question_key = f"question_{len(st.session_state.ai_history)}"
+    if f"{question_key}_ready_to_calculate" not in st.session_state:
+        st.session_state[f"{question_key}_ready_to_calculate"] = False
+    
+    if calculation_requested and portfolio_info['missing_info'] and not st.session_state[f"{question_key}_ready_to_calculate"]:
         with st.expander("📝 **Step 2: Human-in-the-Loop Information Gathering**", expanded=True):
             st.markdown("**I can run the SA-CCR calculation, but some information is missing. Please provide details or I'll use reasonable assumptions:**")
             
@@ -2972,51 +2977,46 @@ def process_ai_question(question: str):
                 if not portfolio_info['trades']:
                     additional_info['notional'] = st.number_input(
                         "Trade Notional ($)", value=100_000_000, step=10_000_000,
-                        key=f"notional_{len(st.session_state.ai_history)}"
+                        key=f"notional_{question_key}"
                     )
                     additional_info['maturity_years'] = st.number_input(
                         "Maturity (years)", value=1.0, step=0.5,
-                        key=f"maturity_{len(st.session_state.ai_history)}"
+                        key=f"maturity_{question_key}"
                     )
             
             with col2:
                 additional_info['threshold'] = st.number_input(
                     "Threshold ($)", value=12_000_000, step=1_000_000,
-                    key=f"threshold_{len(st.session_state.ai_history)}"
+                    key=f"threshold_{question_key}"
                 )
                 additional_info['mta'] = st.number_input(
                     "MTA ($)", value=1_000_000, step=100_000,
-                    key=f"mta_{len(st.session_state.ai_history)}"
+                    key=f"mta_{question_key}"
                 )
             
-            # Wait for human input or proceed with assumptions
+            # Simple approach - auto-proceed with inputs
+            st.markdown("---")
             col1, col2 = st.columns(2)
+            
             with col1:
-                run_with_inputs = st.button("🚀 Run Calculation with Above Inputs", type="primary", key=f"run_inputs_{len(st.session_state.ai_history)}")
+                if st.button("🚀 Run Calculation with Above Inputs", type="primary", key=f"run_inputs_{question_key}"):
+                    st.session_state[f"{question_key}_ready_to_calculate"] = True
+                    st.session_state[f"{question_key}_additional_info"] = additional_info
+                    st.rerun()
+            
             with col2:
-                run_with_assumptions = st.button("⚡ Run with AI Assumptions", key=f"run_assumptions_{len(st.session_state.ai_history)}")
+                if st.button("⚡ Run with AI Assumptions", key=f"run_assumptions_{question_key}"):
+                    st.session_state[f"{question_key}_ready_to_calculate"] = True
+                    st.session_state[f"{question_key}_additional_info"] = {}  # Use defaults
+                    st.rerun()
             
-            # Set session state to proceed with calculation
-            if run_with_inputs:
-                st.session_state.proceed_with_calculation = True
-                st.session_state.use_user_inputs = True
-            elif run_with_assumptions:
-                st.session_state.proceed_with_calculation = True
-                st.session_state.use_user_inputs = False
-            
-            # Check if we should proceed
-            should_proceed = st.session_state.get('proceed_with_calculation', False)
-            
-            if not should_proceed:
-                st.info("👆 Choose an option above to proceed with the SA-CCR calculation")
-                return
-            else:
-                # Clear the flag and proceed
-                st.session_state.proceed_with_calculation = False
-                if st.session_state.get('use_user_inputs', False):
-                    st.success("✅ Proceeding with your provided inputs...")
-                else:
-                    st.success("✅ Proceeding with AI assumptions...")
+            st.info("👆 Choose an option above to proceed with the SA-CCR calculation")
+            return
+    
+    # If we have missing info but user decided to proceed, get the stored additional info
+    if calculation_requested and st.session_state.get(f"{question_key}_ready_to_calculate", False):
+        additional_info = st.session_state.get(f"{question_key}_additional_info", {})
+        st.success("✅ Proceeding with SA-CCR calculation...")
     
     # Step 3: Run SA-CCR Calculation with 24-step methodology
     if calculation_requested:
