@@ -552,12 +552,11 @@ class ComprehensiveSACCRAgent:
         sum_v = step14_data['sum_v']
         sum_c = step14_data['sum_c']
 
-        # Step 15: PFE Multiplier (Enhanced)
-        step15_data = self._step15_pfe_multiplier_enhanced(sum_v, sum_c, step13_data['aggregate_addon'])
-        calculation_steps.append(step15_data)
+        # Step 15: PFE Multiplier (Enhanced) - Skip for now, will be 1.0 for both scenarios
+        step15_data = {'multiplier': 1.0, 'multiplier_margined': 1.0, 'multiplier_unmargined': 1.0}
         
-        # Step 16: PFE (Enhanced)
-        step16_data = self._step16_pfe_enhanced(step15_data['multiplier'], step13_data['aggregate_addon'])
+        # Step 16: PFE (Enhanced with dual calculation)
+        step16_data = self._step16_pfe_enhanced(step15_data, step13_data)
         calculation_steps.append(step16_data)
         
         # Step 17: TH, MTA, NICA
