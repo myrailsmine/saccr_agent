@@ -2193,30 +2193,76 @@ def display_enhanced_saccr_results(result: Dict, netting_set: NettingSet):
                     # Show detailed data for key steps with enhanced formatting
                     if step_num in [1, 2, 5, 6, 8, 9, 11, 12, 13, 14, 15, 16, 18, 21, 22, 23, 24]:
                         with st.expander(f"📊 Detailed Data - Step {step_num}: {step_data['title']}", expanded=False):
-                            if isinstance(step_data.get('data'), dict):
-                                # Format the data nicely for display
-                                formatted_data = {}
-                                for key, value in step_data['data'].items():
-                                    if isinstance(value, (int, float)) and key not in ['step', 'multiplier', 'alpha', 'risk_weight_decimal']:
-                                        if abs(value) > 1000000:
-                                            formatted_data[key] = f"${value:,.0f}"
-                                        elif abs(value) > 1000:
-                                            formatted_data[key] = f"${value:,.2f}"
-                                        else:
-                                            formatted_data[key] = f"{value:.6f}"
-                                    else:
-                                        formatted_data[key] = value
+                            
+                            # Special handling for dual calculation steps (18 and 21)
+                            if step_num == 18:  # RC Calculation
+                                st.markdown("#### 🔄 Basel Dual Calculation Approach")
+                                st.markdown("**Both margined and unmargined scenarios calculated as required by regulation:**")
                                 
-                                st.json(formatted_data)
-                            elif isinstance(step_data.get('data'), list):
-                                # Display list data as DataFrame if possible
-                                try:
-                                    df_display = pd.DataFrame(step_data['data'])
-                                    st.dataframe(df_display, use_container_width=True)
-                                except:
-                                    st.json(step_data['data'])
+                                data = step_data['data']
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    st.markdown("**📊 Margined Scenario:**")
+                                    st.metric("RC Margined", f"${data['rc_margined']:,.0f}")
+                                    st.write(f"Formula: max(V-C, TH+MTA-NICA, 0)")
+                                    st.write(f"= max(${data['net_exposure']:,.0f}, ${data['margin_floor']:,.0f}, 0)")
+                                
+                                with col2:
+                                    st.markdown("**📊 Unmargined Scenario:**")
+                                    st.metric("RC Unmargined", f"${data['rc_unmargined']:,.0f}")
+                                    st.write(f"Formula: max(V-C, 0)")
+                                    st.write(f"= max(${data['net_exposure']:,.0f}, 0)")
+                                
+                                st.info(f"**Methodology:** {data['methodology']}")
+                            
+                            elif step_num == 21:  # EAD Calculation
+                                st.markdown("#### ⚖️ Basel Minimum Selection Rule")
+                                st.markdown("**Dual EAD calculation with minimum selection (regulatory requirement):**")
+                                
+                                data = step_data['data']
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    st.markdown("**📊 EAD Margined:**")
+                                    st.metric("EAD Margined", f"${data['ead_margined']:,.0f}")
+                                    st.write(f"= {data['alpha']} × (${data['rc_margined']:,.0f} + ${data['pfe']:,.0f})")
+                                
+                                with col2:
+                                    st.markdown("**📊 EAD Unmargined:**")
+                                    st.metric("EAD Unmargined", f"${data['ead_unmargined']:,.0f}")
+                                    st.write(f"= {data['alpha']} × (${data['rc_unmargined']:,.0f} + ${data['pfe']:,.0f})")
+                                
+                                # Highlight the minimum selection
+                                final_ead = data['ead_final']
+                                selected = "Margined" if final_ead == data['ead_margined'] else "Unmargined"
+                                st.success(f"**Final EAD = min(${data['ead_margined']:,.0f}, ${data['ead_unmargined']:,.0f}) = ${final_ead:,.0f}**")
+                                st.success(f"**Selected Approach: {selected}** (as per Basel minimum selection rule)")
+                            
                             else:
-                                st.json(step_data.get('data', 'No detailed data available'))
+                                # Standard formatting for other steps
+                                if isinstance(step_data.get('data'), dict):
+                                    # Format the data nicely for display
+                                    formatted_data = {}
+                                    for key, value in step_data['data'].items():
+                                        if isinstance(value, (int, float)) and key not in ['step', 'multiplier', 'alpha', 'risk_weight_decimal']:
+                                            if abs(value) > 1000000:
+                                                formatted_data[key] = f"${value:,.0f}"
+                                            elif abs(value) > 1000:
+                                                formatted_data[key] = f"${value:,.2f}"
+                                            else:
+                                                formatted_data[key] = f"{value:.6f}"
+                                        else:
+                                            formatted_data[key] = value
+                                    
+                                    st.json(formatted_data)
+                                elif isinstance(step_data.get('data'), list):
+                                    # Display list data as DataFrame if possible
+                                    try:
+                                        df_display = pd.DataFrame(step_data['data'])
+                                        st.dataframe(df_display, use_container_width=True)
+                                    except:
+                                        st.json(step_data['data'])
+                                else:
+                                    st.json(step_data.get('data', 'No detailed data available'))
     
     # Enhanced AI Analysis
     if result.get('ai_explanation'):
