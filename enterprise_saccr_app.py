@@ -2806,126 +2806,6 @@ def show_reference_example():
         24. **RWA** - Final risk-weighted assets for capital
         """)
 
-def enhanced_ai_assistant_page():
-    """Enhanced AI assistant with comprehensive SA-CCR expertise and human-in-the-loop"""
-    
-    st.markdown("## 🤖 AI SA-CCR Expert Assistant")
-    st.markdown("*Intelligent SA-CCR analysis with full 24-step calculation context and interactive guidance*")
-    
-    # Initialize AI history and conversation state
-    if 'ai_history' not in st.session_state:
-        st.session_state.ai_history = []
-    if 'ai_conversation_state' not in st.session_state:
-        st.session_state.ai_conversation_state = {}
-    if 'pending_calculation' not in st.session_state:
-        st.session_state.pending_calculation = None
-    
-    # Check for current calculation context
-    has_current_calculation = hasattr(st.session_state, 'current_result') and st.session_state.current_result is not None
-    
-    # Display current calculation context
-    if has_current_calculation:
-        st.success("✅ **AI has full context of your current SA-CCR calculation**")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            final_ead = st.session_state.current_result['final_results']['exposure_at_default']
-            st.metric("Current EAD", f"${final_ead:,.0f}")
-        with col2:
-            trades_count = len(st.session_state.current_netting_set.trades) if hasattr(st.session_state, 'current_netting_set') else 0
-            st.metric("Trades", trades_count)
-        with col3:
-            counterparty = st.session_state.current_netting_set.counterparty if hasattr(st.session_state, 'current_netting_set') else "N/A"
-            st.write(f"**Counterparty:** {counterparty}")
-    else:
-        st.info("💡 **Tip**: Run a calculation first to give AI full context, or ask general SA-CCR questions")
-    
-    # Check LLM connection status
-    if st.session_state.saccr_agent.connection_status != "connected":
-        st.warning("⚠️ LLM not connected. Please configure and connect in the sidebar for AI features.")
-        st.markdown("### 📋 Available in Basic Mode:")
-        st.write("• Pre-built calculation templates")
-        st.write("• Regulatory reference materials") 
-        st.write("• Step-by-step methodology guides")
-        return
-    
-    # Enhanced AI Assistant Interface with Human-in-the-Loop
-    st.markdown("### 💬 Expert Consultation")
-    
-    # Quick question templates
-    with st.expander("💡 Expert Question Templates", expanded=True):
-        st.markdown("""
-        **🎯 Regulatory Questions:**
-        - "What drives the capital requirement in this SA-CCR calculation?"
-        - "How can I optimize this portfolio to reduce RWA?"
-        - "Explain the impact of central clearing on this calculation"
-        
-        **📊 Technical Analysis:**
-        - "Break down the PFE multiplier calculation step by step"
-        - "Why is the maturity factor applied this way?"
-        - "How do netting benefits work in SA-CCR?"
-        
-        **🏦 Business Strategy:**
-        - "What are the key optimization levers for this portfolio?"
-        - "How would adding collateral impact the capital requirement?"
-        - "Compare bilateral vs centrally cleared capital impact"
-        """)
-        
-        # Quick action buttons
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button("🧮 Analyze Current Calculation"):
-                if 'saccr_result' in st.session_state:
-                    process_ai_question("Provide a detailed analysis of the current SA-CCR calculation results, focusing on key risk drivers and optimization opportunities.")
-                else:
-                    st.warning("Please run a calculation first.")
-        
-        with col2:
-            if st.button("📈 Optimization Strategies"):
-                process_ai_question("What are the most effective strategies to reduce regulatory capital for SA-CCR portfolios? Include specific techniques and quantitative impacts.")
-        
-        with col3:
-            if st.button("⚖️ Regulatory Compliance"):
-                process_ai_question("Explain the key regulatory compliance requirements for SA-CCR implementation, including common pitfalls and best practices.")
-    
-    # Custom Question Input
-    st.markdown("### 🎤 Ask Your Question")
-    
-    user_question = st.text_area(
-        "Ask any SA-CCR related question:",
-        placeholder="e.g., How does the supervisory correlation affect the final capital requirement?",
-        height=100
-    )
-    
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        if st.button("🚀 Get AI Analysis", type="primary") and user_question:
-            process_ai_question(user_question)
-    
-    with col2:
-        if st.button("🗑️ Clear History"):
-            if 'ai_history' in st.session_state:
-                st.session_state.ai_history = []
-            st.rerun()
-    
-    # Display conversation history
-    if 'ai_history' in st.session_state and st.session_state.ai_history:
-        st.markdown("### 💭 Conversation History")
-        
-        for i, (question, answer) in enumerate(reversed(st.session_state.ai_history[-5:])):
-            with st.container():
-                st.markdown(f"""
-                <div class="user-query">
-                    <strong>Q{len(st.session_state.ai_history)-i}:</strong> {question}
-                </div>
-                """, unsafe_allow_html=True)
-                
-                answer_formatted = answer.replace('\n', '<br>')
-                st.markdown(f"""
-                <div class="ai-response">
-                    <strong>🤖 Expert Analysis:</strong><br>
-                    {answer_formatted}
-                </div>
-                """, unsafe_allow_html=True)
 
 def process_ai_question(question: str):
     """Process AI question with natural language interpretation and SA-CCR calculation"""
@@ -4005,6 +3885,529 @@ def portfolio_analysis_page():
         file_name=f"portfolio_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
         mime="application/json"
     )
+
+def enhanced_ai_assistant_page():
+    """Enhanced AI assistant with conversational flow and simplified interaction"""
+    
+    st.markdown("## 🤖 AI SA-CCR Expert Assistant")
+    st.markdown("*Intelligent SA-CCR analysis with conversational guidance*")
+    
+    # Initialize conversation state
+    if 'ai_conversation' not in st.session_state:
+        st.session_state.ai_conversation = []
+    if 'current_question' not in st.session_state:
+        st.session_state.current_question = None
+    if 'waiting_for_calculation' not in st.session_state:
+        st.session_state.waiting_for_calculation = False
+    if 'calculation_inputs' not in st.session_state:
+        st.session_state.calculation_inputs = {}
+    
+    # Check for current calculation context
+    has_current_calculation = hasattr(st.session_state, 'saccr_result') and st.session_state.saccr_result is not None
+    
+    # Display current calculation context
+    if has_current_calculation:
+        st.success("✅ **AI has full context of your current SA-CCR calculation**")
+        final_ead = st.session_state.saccr_result['final_results']['exposure_at_default']
+        st.metric("Current EAD", f"${final_ead:,.0f}")
+    else:
+        st.info("💡 **Tip**: Ask any SA-CCR question or request a calculation")
+    
+    # Check LLM connection status
+    if st.session_state.saccr_agent.connection_status != "connected":
+        st.warning("⚠️ LLM not connected. Using simplified mode with calculation capabilities.")
+    
+    # Main conversation interface
+    st.markdown("### 💬 Conversation")
+    
+    # Show conversation history
+    if st.session_state.ai_conversation:
+        for i, exchange in enumerate(st.session_state.ai_conversation):
+            # User message
+            st.markdown(f"""
+            <div style="background: #f0f2f6; padding: 1rem; border-radius: 8px; margin: 1rem 0; border-left: 4px solid #4f46e5;">
+                <strong>You:</strong> {exchange['question']}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # AI response
+            st.markdown(f"""
+            <div style="background: #e8f5e8; padding: 1rem; border-radius: 8px; margin: 1rem 0; border-left: 4px solid #10b981;">
+                <strong>AI Expert:</strong> {exchange['response']}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Show calculation results if any
+            if exchange.get('calculation_result'):
+                with st.expander(f"📊 Calculation Results from Exchange {i+1}", expanded=False):
+                    result = exchange['calculation_result']
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("EAD", f"${result['final_results']['exposure_at_default']:,.0f}")
+                    with col2:
+                        st.metric("RWA", f"${result['final_results']['risk_weighted_assets']:,.0f}")
+                    with col3:
+                        st.metric("Capital", f"${result['final_results']['capital_requirement']:,.0f}")
+    
+    # Handle ongoing calculation request
+    if st.session_state.waiting_for_calculation:
+        st.markdown("### 📝 I need some information to run the SA-CCR calculation:")
+        
+        # Simple input form
+        with st.form("calculation_inputs_form"):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                notional = st.number_input("Trade Notional ($)", value=100_000_000, step=10_000_000)
+                maturity_years = st.number_input("Maturity (years)", value=1.0, step=0.5, min_value=0.1, max_value=30.0)
+                asset_class = st.selectbox("Asset Class", ["Interest Rate", "Foreign Exchange", "Credit", "Equity", "Commodity"])
+            
+            with col2:
+                threshold = st.number_input("Threshold ($)", value=12_000_000, step=1_000_000)
+                mta = st.number_input("MTA ($)", value=1_000_000, step=100_000)
+                counterparty = st.text_input("Counterparty", value="Major Bank")
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                if st.form_submit_button("🚀 Run Calculation", type="primary"):
+                    # Store inputs and run calculation
+                    st.session_state.calculation_inputs = {
+                        'notional': notional,
+                        'maturity_years': maturity_years,
+                        'asset_class': asset_class,
+                        'threshold': threshold,
+                        'mta': mta,
+                        'counterparty': counterparty
+                    }
+                    
+                    # Run the calculation
+                    success, result = run_simplified_calculation(st.session_state.calculation_inputs, st.session_state.current_question)
+                    
+                    if success:
+                        # Add to conversation
+                        response = f"""I've successfully calculated the SA-CCR for your portfolio. Here are the key results:
+
+**Trade Details:**
+- Notional: ${notional:,.0f}
+- Asset Class: {asset_class}
+- Maturity: {maturity_years} years
+- Counterparty: {counterparty}
+
+**SA-CCR Results:**
+- Exposure at Default (EAD): ${result['final_results']['exposure_at_default']:,.0f}
+- Risk Weighted Assets (RWA): ${result['final_results']['risk_weighted_assets']:,.0f}
+- Capital Requirement: ${result['final_results']['capital_requirement']:,.0f}
+
+**Key Insights:**
+- Current exposure (RC): ${result['final_results']['replacement_cost']:,.0f}
+- Future exposure (PFE): ${result['final_results']['potential_future_exposure']:,.0f}
+- Capital efficiency: {(result['final_results']['capital_requirement']/notional*100):.3f}% of notional
+
+The calculation follows the complete 24-step Basel SA-CCR methodology. Would you like me to explain any specific aspect or suggest optimization strategies?"""
+                        
+                        st.session_state.ai_conversation.append({
+                            'question': st.session_state.current_question,
+                            'response': response,
+                            'calculation_result': result,
+                            'timestamp': datetime.now()
+                        })
+                        
+                        # Store result for future reference
+                        st.session_state.saccr_result = result
+                        
+                        # Reset states
+                        st.session_state.waiting_for_calculation = False
+                        st.session_state.current_question = None
+                        st.rerun()
+                    else:
+                        st.error("Calculation failed. Please check inputs and try again.")
+            
+            with col2:
+                if st.form_submit_button("⚡ Use Defaults"):
+                    # Use default values
+                    default_inputs = {
+                        'notional': 100_000_000,
+                        'maturity_years': 1.0,
+                        'asset_class': 'Interest Rate',
+                        'threshold': 12_000_000,
+                        'mta': 1_000_000,
+                        'counterparty': 'Major Bank'
+                    }
+                    
+                    success, result = run_simplified_calculation(default_inputs, st.session_state.current_question)
+                    
+                    if success:
+                        response = f"""I've calculated SA-CCR using standard assumptions:
+
+**Default Portfolio:**
+- $100M Interest Rate Swap
+- 1-year maturity
+- Major Bank counterparty
+- $12M threshold, $1M MTA
+
+**Results:**
+- EAD: ${result['final_results']['exposure_at_default']:,.0f}
+- RWA: ${result['final_results']['risk_weighted_assets']:,.0f}
+- Capital: ${result['final_results']['capital_requirement']:,.0f}
+
+This gives you a baseline SA-CCR calculation. You can ask me to modify any parameters or explain the methodology."""
+                        
+                        st.session_state.ai_conversation.append({
+                            'question': st.session_state.current_question,
+                            'response': response,
+                            'calculation_result': result,
+                            'timestamp': datetime.now()
+                        })
+                        
+                        st.session_state.saccr_result = result
+                        st.session_state.waiting_for_calculation = False
+                        st.session_state.current_question = None
+                        st.rerun()
+            
+            with col3:
+                if st.form_submit_button("❌ Cancel"):
+                    st.session_state.waiting_for_calculation = False
+                    st.session_state.current_question = None
+                    st.rerun()
+    
+    else:
+        # New question input
+        st.markdown("### 🎤 Ask Your Question")
+        
+        # Quick question buttons
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("🧮 Calculate SA-CCR", type="primary"):
+                handle_new_question("Please calculate SA-CCR for my portfolio with the following details")
+        
+        with col2:
+            if st.button("📈 Optimization Tips"):
+                handle_new_question("What are the best strategies to optimize SA-CCR capital requirements?")
+        
+        with col3:
+            if st.button("⚖️ Explain Basel Rules"):
+                handle_new_question("Explain the key Basel SA-CCR regulatory requirements and methodology")
+        
+        # Custom question input
+        user_question = st.text_area(
+            "Or ask any SA-CCR question:",
+            placeholder="e.g., How does netting affect my capital requirements?",
+            height=100,
+            key="user_question_input"
+        )
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if st.button("🚀 Ask AI Expert", type="primary") and user_question:
+                handle_new_question(user_question)
+        
+        with col2:
+            if st.button("🗑️ Clear Chat"):
+                st.session_state.ai_conversation = []
+                st.session_state.waiting_for_calculation = False
+                st.session_state.current_question = None
+                st.rerun()
+
+def handle_new_question(question: str):
+    """Handle a new question from the user"""
+    
+    # Check if this is a calculation request
+    calculation_keywords = ['calculate', 'compute', 'run', 'perform', 'ead', 'rwa', 'capital']
+    needs_calculation = any(keyword in question.lower() for keyword in calculation_keywords)
+    
+    if needs_calculation:
+        # Check if we already have portfolio data
+        has_portfolio = hasattr(st.session_state, 'trades_input') and st.session_state.trades_input
+        
+        if has_portfolio:
+            # Use existing portfolio for calculation
+            try:
+                netting_set = NettingSet(
+                    netting_set_id="AI_CALC",
+                    counterparty="Portfolio Analysis",
+                    trades=st.session_state.trades_input,
+                    threshold=getattr(st.session_state, 'reference_threshold', 12000000),
+                    mta=getattr(st.session_state, 'reference_mta', 1000000),
+                    nica=getattr(st.session_state, 'reference_nica', 0)
+                )
+                
+                result = st.session_state.saccr_agent.calculate_comprehensive_saccr(netting_set, [])
+                
+                response = f"""I've analyzed your current portfolio and calculated SA-CCR:
+
+**Portfolio Overview:**
+- {len(st.session_state.trades_input)} trades
+- Total notional: ${sum(abs(t.notional) for t in st.session_state.trades_input):,.0f}
+
+**SA-CCR Results:**
+- EAD: ${result['final_results']['exposure_at_default']:,.0f}
+- RWA: ${result['final_results']['risk_weighted_assets']:,.0f}
+- Capital: ${result['final_results']['capital_requirement']:,.0f}
+
+The calculation follows Basel's 24-step methodology including dual margined/unmargined scenarios. Would you like me to explain any specific component?"""
+                
+                st.session_state.ai_conversation.append({
+                    'question': question,
+                    'response': response,
+                    'calculation_result': result,
+                    'timestamp': datetime.now()
+                })
+                
+                st.session_state.saccr_result = result
+                st.rerun()
+                return
+                
+            except Exception as e:
+                st.error(f"Error calculating with existing portfolio: {e}")
+        
+        # Need to gather calculation inputs
+        st.session_state.current_question = question
+        st.session_state.waiting_for_calculation = True
+        st.rerun()
+    
+    else:
+        # Handle as general question
+        if st.session_state.saccr_agent.connection_status == "connected":
+            # Use LLM for response
+            try:
+                context = build_conversation_context()
+                
+                system_prompt = """You are a Basel SA-CCR regulatory expert. Provide clear, practical guidance on SA-CCR methodology, optimization, and compliance. Focus on actionable insights."""
+                
+                user_prompt = f"""
+Question: {question}
+
+Context: {context}
+
+Please provide a comprehensive but concise response focusing on practical guidance.
+"""
+                
+                response = st.session_state.saccr_agent.llm.invoke([
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=user_prompt)
+                ])
+                
+                ai_response = response.content
+                
+            except Exception as e:
+                ai_response = generate_template_response(question)
+        
+        else:
+            # Use template response
+            ai_response = generate_template_response(question)
+        
+        st.session_state.ai_conversation.append({
+            'question': question,
+            'response': ai_response,
+            'timestamp': datetime.now()
+        })
+        
+        st.rerun()
+
+def run_simplified_calculation(inputs: Dict, original_question: str) -> Tuple[bool, Dict]:
+    """Run SA-CCR calculation with simplified inputs"""
+    
+    try:
+        # Create trade object
+        asset_class_map = {
+            'Interest Rate': AssetClass.INTEREST_RATE,
+            'Foreign Exchange': AssetClass.FOREIGN_EXCHANGE,
+            'Credit': AssetClass.CREDIT,
+            'Equity': AssetClass.EQUITY,
+            'Commodity': AssetClass.COMMODITY
+        }
+        
+        trade = Trade(
+            trade_id="AI_CALC_001",
+            counterparty=inputs['counterparty'],
+            asset_class=asset_class_map[inputs['asset_class']],
+            trade_type=TradeType.SWAP,
+            notional=inputs['notional'],
+            currency="USD",
+            underlying=inputs['asset_class'],
+            maturity_date=datetime.now() + timedelta(days=int(inputs['maturity_years'] * 365)),
+            mtm_value=inputs['notional'] * 0.01,  # 1% MTM assumption
+            delta=1.0
+        )
+        
+        # Create netting set
+        netting_set = NettingSet(
+            netting_set_id=f"AI_{datetime.now().strftime('%H%M%S')}",
+            counterparty=inputs['counterparty'],
+            trades=[trade],
+            threshold=inputs['threshold'],
+            mta=inputs['mta'],
+            nica=0
+        )
+        
+        # Run calculation
+        result = st.session_state.saccr_agent.calculate_comprehensive_saccr(netting_set, [])
+        
+        return True, result
+        
+    except Exception as e:
+        st.error(f"Calculation error: {e}")
+        return False, None
+
+def build_conversation_context() -> str:
+    """Build context from conversation history and current state"""
+    
+    context_parts = []
+    
+    # Add current calculation context if available
+    if hasattr(st.session_state, 'saccr_result'):
+        final_results = st.session_state.saccr_result['final_results']
+        context_parts.append(f"Current calculation: EAD=${final_results['exposure_at_default']:,.0f}, RWA=${final_results['risk_weighted_assets']:,.0f}")
+    
+    # Add recent conversation
+    if st.session_state.ai_conversation:
+        recent = st.session_state.ai_conversation[-2:]  # Last 2 exchanges
+        for exchange in recent:
+            context_parts.append(f"Recent Q: {exchange['question'][:100]}...")
+    
+    return " | ".join(context_parts) if context_parts else "No prior context"
+
+def generate_template_response(question: str) -> str:
+    """Generate template response for common questions"""
+    
+    question_lower = question.lower()
+    
+    if any(word in question_lower for word in ['calculate', 'compute', 'ead', 'rwa']):
+        return """To calculate SA-CCR, I need to follow Basel's 24-step methodology:
+
+**Key Steps:**
+1. **Trade Classification** - Categorize by asset class and risk factors
+2. **Supervisory Parameters** - Apply regulatory factors (0.5% for USD IR)
+3. **Maturity Adjustments** - Scale for time to maturity
+4. **Add-On Calculation** - Potential future exposure
+5. **Current Exposure** - Replacement cost with netting benefits
+6. **Final EAD** - Combined current and future exposure
+
+**Typical Results for $100M IR Swap:**
+- Supervisory Factor: 50 bps
+- Maturity Factor: ~0.55 (1-year)
+- PFE: ~$2-4M
+- RC: Depends on MTM and margining
+- Final EAD: ~$10-15M
+- Capital (8%): ~$1-2M
+
+Would you like me to run a specific calculation?"""
+    
+    elif any(word in question_lower for word in ['optimize', 'reduce', 'improve']):
+        return """**Key SA-CCR Optimization Strategies:**
+
+**1. Netting & Margining:**
+- Implement comprehensive netting agreements
+- Optimize threshold and MTA terms
+- Consider central clearing for eligible trades
+
+**2. Portfolio Management:**
+- Diversify across asset classes for correlation benefits
+- Manage maturity concentration
+- Balance long/short positions for netting
+
+**3. Collateral Management:**
+- Post high-quality collateral (cash, government bonds)
+- Minimize haircuts through collateral choice
+- Implement efficient collateral operations
+
+**4. Trade Structure:**
+- Consider trade compression
+- Evaluate bilateral vs centrally cleared
+- Optimize trade timing and sizing
+
+**Typical Impact:**
+- Good netting: 20-50% EAD reduction
+- Central clearing: 30% lower alpha (1.0 vs 1.4)
+- Optimal collateral: 5-15% RC reduction"""
+    
+    elif any(word in question_lower for word in ['basel', 'regulation', 'compliance']):
+        return """**Basel SA-CCR Key Regulatory Requirements:**
+
+**Scope & Application:**
+- Applies to all derivative exposures
+- Replaces Current Exposure Method (CEM)
+- Mandatory for banks using standardized approach
+
+**24-Step Methodology:**
+- Steps 1-4: Data foundation and classification
+- Steps 5-13: Risk factor calibration and add-ons
+- Steps 14-21: Current exposure and PFE calculation
+- Steps 22-24: Risk weighting and capital
+
+**Critical Compliance Points:**
+- Must calculate BOTH margined and unmargined scenarios
+- Apply minimum EAD selection rule for margined sets
+- Use exact supervisory factors (50bps for USD IR, not 100bps)
+- Document all 24 steps for audit
+
+**Timeline:**
+- Implementation deadline varies by jurisdiction
+- Most banks required by 2023-2024
+- Regular validation and back-testing required"""
+    
+    else:
+        return f"""I understand you're asking about: "{question}"
+
+**SA-CCR Context:**
+SA-CCR (Standardized Approach for Counterparty Credit Risk) is Basel's method for calculating counterparty credit risk exposure for derivatives.
+
+**Key Concepts:**
+- **EAD (Exposure at Default):** Total credit exposure = Current + Future
+- **RC (Replacement Cost):** Current market value with netting/margining
+- **PFE (Potential Future Exposure):** Potential increase over trade life
+- **Add-On:** Gross potential exposure before netting benefits
+
+**Common Applications:**
+- Regulatory capital calculation
+- Credit limit management
+- Portfolio risk assessment
+- Trade pricing and optimization
+
+Could you clarify what specific aspect you'd like me to focus on? I can run calculations, explain methodology, or provide optimization guidance."""
+
+# Helper functions for the enhanced AI assistant
+def display_calculation_summary(result: Dict, title: str = "Calculation Results"):
+    """Display a compact calculation summary"""
+    
+    final_results = result['final_results']
+    
+    st.markdown(f"**{title}:**")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("EAD", f"${final_results['exposure_at_default']:,.0f}")
+    with col2:
+        st.metric("RWA", f"${final_results['risk_weighted_assets']:,.0f}")
+    with col3:
+        st.metric("Capital", f"${final_results['capital_requirement']:,.0f}")
+
+def extract_key_insights(result: Dict) -> List[str]:
+    """Extract key insights from calculation results"""
+    
+    insights = []
+    final_results = result['final_results']
+    
+    rc = final_results['replacement_cost']
+    pfe = final_results['potential_future_exposure']
+    ead = final_results['exposure_at_default']
+    
+    # Current vs future exposure
+    if rc > pfe:
+        insights.append("Current exposure dominates - focus on margining optimization")
+    else:
+        insights.append("Future exposure dominates - consider trade compression")
+    
+    # Capital efficiency
+    if 'enhanced_summary' in result:
+        summary = result['enhanced_summary']
+        if 'capital_results' in summary and summary['capital_results']:
+            for item in summary['capital_results']:
+                if 'efficiency' in item.lower():
+                    insights.append(item)
+    
+    return insights[:3]  # Top 3 insights
 
 if __name__ == "__main__":
     main()
