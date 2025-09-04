@@ -2190,10 +2190,33 @@ def display_enhanced_saccr_results(result: Dict, netting_set: NettingSet):
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Show detailed data for key steps
-                    if step_num in [9, 11, 12, 13, 15, 16, 18, 21, 24] and isinstance(step_data.get('data'), dict):
-                        with st.expander(f"📊 Detailed Data - Step {step_num}", expanded=False):
-                            st.json(step_data['data'])
+                    # Show detailed data for key steps with enhanced formatting
+                    if step_num in [1, 2, 5, 6, 8, 9, 11, 12, 13, 14, 15, 16, 18, 21, 22, 23, 24]:
+                        with st.expander(f"📊 Detailed Data - Step {step_num}: {step_data['title']}", expanded=False):
+                            if isinstance(step_data.get('data'), dict):
+                                # Format the data nicely for display
+                                formatted_data = {}
+                                for key, value in step_data['data'].items():
+                                    if isinstance(value, (int, float)) and key not in ['step', 'multiplier', 'alpha', 'risk_weight_decimal']:
+                                        if abs(value) > 1000000:
+                                            formatted_data[key] = f"${value:,.0f}"
+                                        elif abs(value) > 1000:
+                                            formatted_data[key] = f"${value:,.2f}"
+                                        else:
+                                            formatted_data[key] = f"{value:.6f}"
+                                    else:
+                                        formatted_data[key] = value
+                                
+                                st.json(formatted_data)
+                            elif isinstance(step_data.get('data'), list):
+                                # Display list data as DataFrame if possible
+                                try:
+                                    df_display = pd.DataFrame(step_data['data'])
+                                    st.dataframe(df_display, use_container_width=True)
+                                except:
+                                    st.json(step_data['data'])
+                            else:
+                                st.json(step_data.get('data', 'No detailed data available'))
     
     # Enhanced AI Analysis
     if result.get('ai_explanation'):
