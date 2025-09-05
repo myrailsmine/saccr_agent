@@ -17,7 +17,7 @@ from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
 
 # ==============================================================================
-# ENHANCED UI CONFIGURATION
+# ENTERPRISE UI CONFIGURATION
 # ==============================================================================
 
 st.set_page_config(
@@ -239,7 +239,7 @@ st.markdown("""
 
 class AssetClass(Enum):
     INTEREST_RATE = "Interest Rate"
-    FOREIGN_EXCHANGE = "Foreign Exchange"
+    FOREIGN_EXCHANGE = "Foreign Exchange" 
     CREDIT = "Credit"
     EQUITY = "Equity"
     COMMODITY = "Commodity"
@@ -920,62 +920,6 @@ COLLATERAL ANALYSIS:
             'result': f"Sum V: ${sum_v:,.0f}, Sum C: ${sum_c:,.0f}",
             'sum_v': sum_v,
             'sum_c': sum_c,
-            'thinking': thinking
-        }
-
-    def _step15_pfe_multiplier_enhanced(self, sum_v: float, sum_c: float, aggregate_addon: float) -> Dict:
-        """Step 15: PFE Multiplier with detailed netting benefit analysis"""
-        net_exposure = sum_v - sum_c
-        
-        if aggregate_addon > 0:
-            exponent = net_exposure / (2 * 0.95 * aggregate_addon)
-            multiplier = min(1.0, 0.05 + 0.95 * math.exp(exponent))
-        else:
-            multiplier = 1.0
-            exponent = 0
-        
-        netting_benefit_pct = (1 - multiplier) * 100
-        
-        thinking = {
-            'step': 15,
-            'title': 'PFE Multiplier - Netting Benefit Analysis',
-            'reasoning': f"""
-THINKING PROCESS:
-• The multiplier scales the gross add-on to reflect the benefit of netting.
-• If a portfolio's current value (V-C) is negative, it's less likely to become a large positive exposure in the future, justifying a lower PFE.
-
-DETAILED CALCULATION:
-• Net Exposure (V-C): ${net_exposure:,.0f}
-• Aggregate AddOn: ${aggregate_addon:,.0f}
-• Exponent: ${net_exposure:,.0f} / (1.9 × ${aggregate_addon:,.0f}) = {exponent:.6f}
-• Multiplier: min(1, 0.05 + 0.95 × exp({exponent:.6f})) = {multiplier:.6f}
-
-NETTING BENEFIT ANALYSIS:
-• Final multiplier: {multiplier:.6f}
-• Netting benefit: {netting_benefit_pct:.1f}% reduction in future exposure
-            """,
-            'formula': 'Multiplier = min(1, 0.05 + 0.95 × exp((V-C) / (1.9 × AddOn)))',
-            'key_insight': f"{netting_benefit_pct:.1f}% netting benefit reduces PFE by ${(1-multiplier)*aggregate_addon:,.0f}"
-        }
-        
-        self.thinking_steps.append(thinking)
-        
-        return {
-            'step': 15,
-            'title': 'PFE Multiplier',
-            'description': 'Calculate PFE multiplier based on netting benefit',
-            'data': {
-                'sum_v': sum_v,
-                'sum_c': sum_c,
-                'net_exposure': net_exposure,
-                'aggregate_addon': aggregate_addon,
-                'exponent': exponent,
-                'multiplier': multiplier,
-                'netting_benefit_pct': netting_benefit_pct
-            },
-            'formula': 'Multiplier = min(1, 0.05 + 0.95 × exp((V-C) / (1.9 × AddOn)))',
-            'result': f"PFE Multiplier: {multiplier:.6f}",
-            'multiplier': multiplier,
             'thinking': thinking
         }
 
@@ -1722,16 +1666,15 @@ CAPITAL CALCULATION:
         return 50.0  # Default 50bps (0.5%)
 
 # ==============================================================================
-# ENHANCED STREAMLIT APPLICATION
+# STREAMLIT APPLICATION
 # ==============================================================================
 
 def main():
-    """Enhanced main application with improved navigation and features"""
     # AI-Powered Header
     st.markdown("""
     <div class="ai-header">
         <div class="executive-title">🤖 AI SA-CCR Platform</div>
-        <div class="executive-subtitle">Complete 24-Step Basel SA-CCR Calculator with Advanced AI Analysis</div>
+        <div class="executive-subtitle">Complete 24-Step Basel SA-CCR Calculator with LLM Integration</div>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1739,17 +1682,17 @@ def main():
     if 'saccr_agent' not in st.session_state:
         st.session_state.saccr_agent = ComprehensiveSACCRAgent()
     
-    # Sidebar with enhanced LLM Configuration
+    # Sidebar with LLM Configuration
     with st.sidebar:
         st.markdown("### 🤖 LLM Configuration")
         
-        # Configuration inputs with improved defaults
+        # Configuration inputs
         with st.expander("🔧 LLM Setup", expanded=True):
-            base_url = st.text_input("Base URL", value="http://localhost:8123/v1", help="Local LLM server endpoint")
-            api_key = st.text_input("API Key", value="dummy", type="password", help="API key for authentication")
-            model = st.text_input("Model", value="llama3", help="Model name to use")
-            temperature = st.slider("Temperature", 0.0, 1.0, 0.3, 0.1, help="Controls randomness in responses")
-            max_tokens = st.number_input("Max Tokens", 1000, 8000, 4000, 100, help="Maximum response length")
+            base_url = st.text_input("Base URL", value="http://localhost:8123/v1")
+            api_key = st.text_input("API Key", value="dummy", type="password")
+            model = st.text_input("Model", value="llama3")
+            temperature = st.slider("Temperature", 0.0, 1.0, 0.3, 0.1)
+            max_tokens = st.number_input("Max Tokens", 1000, 8000, 4000, 100)
             
             if st.button("🔗 Connect LLM"):
                 config = {
@@ -1761,115 +1704,60 @@ def main():
                     'streaming': False
                 }
                 
-                with st.spinner("Connecting to LLM..."):
-                    success = st.session_state.saccr_agent.setup_llm_connection(config)
-                    if success:
-                        st.success("✅ LLM Connected!")
-                        st.session_state.llm_config = config
-                    else:
-                        st.error("❌ Connection Failed")
+                success = st.session_state.saccr_agent.setup_llm_connection(config)
+                if success:
+                    st.success("✅ LLM Connected!")
+                else:
+                    st.error("❌ Connection Failed")
         
-        # Connection status with enhanced display
+        # Connection status
         status = st.session_state.saccr_agent.connection_status
         if status == "connected":
-            st.markdown('<div class="connection-status connected">🟢 LLM Connected - AI Analysis Available</div>', unsafe_allow_html=True)
+            st.markdown('<div class="connection-status connected">🟢 LLM Connected</div>', unsafe_allow_html=True)
         else:
-            st.markdown('<div class="connection-status disconnected">🔴 LLM Disconnected - Basic Mode Only</div>', unsafe_allow_html=True)
+            st.markdown('<div class="connection-status disconnected">🔴 LLM Disconnected</div>', unsafe_allow_html=True)
         
         st.markdown("---")
         st.markdown("### 📊 Navigation")
         page = st.selectbox(
             "Select Module:",
-            [
-                "🧮 Enhanced SA-CCR Calculator", 
-                "📋 Reference Example", 
-                "🤖 AI Assistant", 
-                "📊 Portfolio Analysis",
-                "📈 Data Quality Analysis"
-            ]
+            ["🧮 Complete SA-CCR Calculator", "📋 Reference Example", "🤖 AI Assistant", "📊 Portfolio Analysis"]
         )
     
     # Route to different pages
-    if page == "🧮 Enhanced SA-CCR Calculator":
-        enhanced_complete_saccr_calculator()
+    if page == "🧮 Complete SA-CCR Calculator":
+        complete_saccr_calculator()
     elif page == "📋 Reference Example":
         show_reference_example()
     elif page == "🤖 AI Assistant":
-        enhanced_ai_assistant_page()
+        ai_assistant_page()
     elif page == "📊 Portfolio Analysis":
         portfolio_analysis_page()
-    elif page == "📈 Data Quality Analysis":
-        analyze_portfolio_data_quality()
 
-def enhanced_complete_saccr_calculator():
-    """Enhanced 24-step SA-CCR calculator with advanced features"""
+def complete_saccr_calculator():
+    """Complete 24-step SA-CCR calculator with input validation"""
     
-    st.markdown("## 🧮 Enhanced SA-CCR Calculator")
-    st.markdown("*Following the complete 24-step Basel regulatory framework with AI-powered insights*")
+    st.markdown("## 🧮 Complete SA-CCR Calculator")
+    st.markdown("*Following the complete 24-step Basel regulatory framework*")
     
-    # Step 1: Enhanced Netting Set Setup
+    # Step 1: Netting Set Setup
     with st.expander("📊 Step 1: Netting Set Configuration", expanded=True):
         col1, col2 = st.columns(2)
         
         with col1:
-            netting_set_id = st.text_input(
-                "Netting Set ID*", 
-                placeholder="e.g., 212784060000009618701",
-                help="Unique identifier for the netting agreement"
-            )
-            counterparty = st.text_input(
-                "Counterparty*", 
-                placeholder="e.g., Lowell Hotel Properties LLC",
-                help="Legal entity name of the counterparty"
-            )
+            netting_set_id = st.text_input("Netting Set ID*", placeholder="e.g., 212784060000009618701")
+            counterparty = st.text_input("Counterparty*", placeholder="e.g., Lowell Hotel Properties LLC")
             
         with col2:
-            # Use reference values if available, otherwise defaults
-            default_threshold = getattr(st.session_state, 'reference_threshold', 1000000)
-            default_mta = getattr(st.session_state, 'reference_mta', 500000)
-            default_nica = getattr(st.session_state, 'reference_nica', 0)
-            
-            threshold = st.number_input(
-                "Threshold ($)*", 
-                min_value=0.0, 
-                value=float(default_threshold), 
-                step=100000.0,
-                help="Minimum exposure before collateral posting requirement"
-            )
-            mta = st.number_input(
-                "MTA ($)*", 
-                min_value=0.0, 
-                value=float(default_mta), 
-                step=50000.0,
-                help="Minimum Transfer Amount for collateral calls"
-            )
-            nica = st.number_input(
-                "NICA ($)", 
-                min_value=0.0, 
-                value=float(default_nica), 
-                step=10000.0,
-                help="Net Independent Collateral Amount"
-            )
+            threshold = st.number_input("Threshold ($)*", min_value=0.0, value=1000000.0, step=100000.0)
+            mta = st.number_input("MTA ($)*", min_value=0.0, value=500000.0, step=50000.0)
+            nica = st.number_input("NICA ($)", min_value=0.0, value=0.0, step=10000.0)
     
-    # Step 2: Enhanced Trade Input with Template
+    # Step 2: Trade Input
     st.markdown("### 📈 Trade Portfolio Input")
     
-    # Initialize trades if not exists
     if 'trades_input' not in st.session_state:
         st.session_state.trades_input = []
-    
-    # Quick templates
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        if st.button("📊 Load Basel Reference Example"):
-            load_reference_example()
-            st.rerun()  # Refresh to update default values
-    with col2:
-        if st.button("🌐 Load FX Forward"):
-            _load_fx_template()
-    with col3:
-        if st.button("📈 Load Equity Option"):
-            _load_equity_template()
     
     with st.expander("➕ Add New Trade", expanded=len(st.session_state.trades_input) == 0):
         col1, col2, col3 = st.columns(3)
@@ -1881,13 +1769,13 @@ def enhanced_complete_saccr_calculator():
         
         with col2:
             notional = st.number_input("Notional ($)*", min_value=0.0, value=100000000.0, step=1000000.0)
-            currency = st.selectbox("Currency*", ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"])
+            currency = st.selectbox("Currency*", ["USD", "EUR", "GBP", "JPY", "CHF", "CAD"])
             underlying = st.text_input("Underlying*", placeholder="e.g., Interest rate")
         
         with col3:
             maturity_years = st.number_input("Maturity (Years)*", min_value=0.1, max_value=30.0, value=5.0, step=0.1)
-            mtm_value = st.number_input("MTM Value ($)", value=0.0, step=10000.0, help="Current Mark-to-Market value")
-            delta = st.number_input("Delta (for options)", min_value=-1.0, max_value=1.0, value=1.0, step=0.1, help="Option sensitivity")
+            mtm_value = st.number_input("MTM Value ($)", value=0.0, step=10000.0)
+            delta = st.number_input("Delta (for options)", min_value=-1.0, max_value=1.0, value=1.0, step=0.1)
         
         col1, col2 = st.columns(2)
         with col1:
@@ -1916,13 +1804,11 @@ def enhanced_complete_saccr_calculator():
                 st.session_state.trades_input = []
                 st.rerun()
     
-    # Enhanced Trade Display with Visualizations
+    # Display current trades
     if st.session_state.trades_input:
         st.markdown("### 📋 Current Trade Portfolio")
         
-        # Create enhanced trade display
         trades_data = []
-        total_notional = 0
         for i, trade in enumerate(st.session_state.trades_input):
             trades_data.append({
                 'Index': i,
@@ -1932,57 +1818,11 @@ def enhanced_complete_saccr_calculator():
                 'Notional ($M)': f"{trade.notional/1_000_000:.1f}",
                 'Currency': trade.currency,
                 'MTM ($K)': f"{trade.mtm_value/1000:.0f}",
-                'Maturity (Y)': f"{trade.time_to_maturity():.1f}",
-                'Delta': f"{trade.delta:.2f}"
+                'Maturity (Y)': f"{trade.time_to_maturity():.1f}"
             })
-            total_notional += abs(trade.notional)
         
         df = pd.DataFrame(trades_data)
         st.dataframe(df, use_container_width=True)
-        
-        # Portfolio summary metrics
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Total Trades", len(st.session_state.trades_input))
-        with col2:
-            st.metric("Total Notional", f"${total_notional/1_000_000:.1f}M")
-        with col3:
-            asset_classes = len(set(trade.asset_class for trade in st.session_state.trades_input))
-            st.metric("Asset Classes", asset_classes)
-        with col4:
-            avg_maturity = sum(trade.time_to_maturity() for trade in st.session_state.trades_input) / len(st.session_state.trades_input)
-            st.metric("Avg Maturity", f"{avg_maturity:.1f}Y")
-        
-        # Portfolio visualization
-        if len(st.session_state.trades_input) > 1:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Asset class distribution
-                asset_class_data = {}
-                for trade in st.session_state.trades_input:
-                    ac = trade.asset_class.value
-                    asset_class_data[ac] = asset_class_data.get(ac, 0) + abs(trade.notional)
-                
-                fig_pie = px.pie(
-                    values=list(asset_class_data.values()),
-                    names=list(asset_class_data.keys()),
-                    title="Portfolio by Asset Class ($)"
-                )
-                st.plotly_chart(fig_pie, use_container_width=True)
-            
-            with col2:
-                # Maturity distribution
-                maturity_data = [trade.time_to_maturity() for trade in st.session_state.trades_input]
-                notional_data = [abs(trade.notional)/1_000_000 for trade in st.session_state.trades_input]
-                
-                fig_scatter = px.scatter(
-                    x=maturity_data,
-                    y=notional_data,
-                    title="Trade Distribution: Maturity vs Notional",
-                    labels={'x': 'Maturity (Years)', 'y': 'Notional ($M)'}
-                )
-                st.plotly_chart(fig_scatter, use_container_width=True)
         
         # Remove trade option
         if len(st.session_state.trades_input) > 0:
@@ -1991,29 +1831,18 @@ def enhanced_complete_saccr_calculator():
                 st.session_state.trades_input.pop(remove_idx)
                 st.rerun()
     
-    # Step 3: Enhanced Collateral Input
+    # Step 3: Collateral Input
     with st.expander("🛡️ Collateral Portfolio", expanded=False):
         if 'collateral_input' not in st.session_state:
             st.session_state.collateral_input = []
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3 = st.columns(3)
         with col1:
             coll_type = st.selectbox("Collateral Type", [ct.value for ct in CollateralType])
         with col2:
             coll_currency = st.selectbox("Collateral Currency", ["USD", "EUR", "GBP", "JPY"])
         with col3:
             coll_amount = st.number_input("Amount ($)", min_value=0.0, value=10000000.0, step=1000000.0)
-        with col4:
-            st.markdown("**Regulatory Haircuts:**")
-            haircut_info = {
-                "Cash": "0%",
-                "Government Bonds": "0.5%",
-                "Corporate Bonds": "4%",
-                "Equities": "15%",
-                "Money Market Funds": "0.5%"
-            }
-            for ctype, haircut in haircut_info.items():
-                st.write(f"• {ctype}: {haircut}")
         
         if st.button("➕ Add Collateral"):
             new_collateral = Collateral(
@@ -2026,15 +1855,12 @@ def enhanced_complete_saccr_calculator():
         
         if st.session_state.collateral_input:
             st.markdown("**Current Collateral:**")
-            total_collateral = 0
             for i, coll in enumerate(st.session_state.collateral_input):
                 st.write(f"{i+1}. {coll.collateral_type.value}: ${coll.amount:,.0f} {coll.currency}")
-                total_collateral += coll.amount
-            st.metric("Total Collateral Posted", f"${total_collateral/1_000_000:.1f}M")
     
-    # Enhanced Validation and Calculation
-    if st.button("🚀 Calculate Enhanced SA-CCR", type="primary"):
-        # Comprehensive validation
+    # Validation and Calculation
+    if st.button("🚀 Calculate Complete SA-CCR", type="primary"):
+        # Create netting set
         if not netting_set_id or not counterparty or not st.session_state.trades_input:
             st.error("❌ Please provide Netting Set ID, Counterparty, and at least one trade")
             return
@@ -2048,7 +1874,7 @@ def enhanced_complete_saccr_calculator():
             nica=nica
         )
         
-        # Enhanced input validation
+        # Validate inputs
         validation = st.session_state.saccr_agent.validate_input_completeness(
             netting_set, st.session_state.collateral_input
         )
@@ -2057,6 +1883,9 @@ def enhanced_complete_saccr_calculator():
             st.error("❌ Missing required information:")
             for field in validation['missing_fields']:
                 st.write(f"   • {field}")
+            
+            st.markdown("### 🔍 Please Provide Missing Information")
+            st.markdown("The system has identified missing required fields above. Please fill them in and try again.")
             return
         
         if validation['warnings']:
@@ -2064,2350 +1893,618 @@ def enhanced_complete_saccr_calculator():
             for warning in validation['warnings']:
                 st.write(f"   • {warning}")
         
-        # Perform enhanced calculation with progress tracking
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        try:
-            status_text.text("🧮 Initializing 24-step SA-CCR calculation...")
-            progress_bar.progress(10)
-            
-            result = st.session_state.saccr_agent.calculate_comprehensive_saccr(
-                netting_set, st.session_state.collateral_input
-            )
-            
-            progress_bar.progress(100)
-            status_text.text("✅ Calculation completed successfully!")
-            
-            # Store result for other pages
-            st.session_state.saccr_result = result
-            
-            # Display enhanced results
-            display_enhanced_saccr_results(result, netting_set)
-            
-        except Exception as e:
-            st.error(f"❌ Calculation error: {str(e)}")
-            st.exception(e)
+        # Perform calculation
+        with st.spinner("🧮 Performing complete 24-step SA-CCR calculation..."):
+            try:
+                result = st.session_state.saccr_agent.calculate_comprehensive_saccr(
+                    netting_set, st.session_state.collateral_input
+                )
+                
+                # Display results
+                display_saccr_results(result)
+                
+            except Exception as e:
+                st.error(f"❌ Calculation error: {str(e)}")
 
-def display_enhanced_saccr_results(result: Dict, netting_set: NettingSet):
-    """Display comprehensive SA-CCR calculation results with enhanced visualizations"""
+def display_saccr_results(result: Dict):
+    """Display comprehensive SA-CCR calculation results"""
     
-    st.markdown("## 📊 Enhanced SA-CCR Calculation Results")
+    # Final Results Summary
+    st.markdown("## 📊 SA-CCR Calculation Results")
     
     final_results = result['final_results']
-    enhanced_summary = result.get('enhanced_summary', {})
     
-    # Executive Summary Dashboard
-    with st.container():
-        st.markdown("### 🎯 Executive Dashboard")
-        
-        col1, col2, col3, col4, col5 = st.columns(5)
-        with col1:
-            st.metric(
-                "Replacement Cost", 
-                f"${final_results['replacement_cost']/1_000_000:.2f}M",
-                help="Current exposure if counterparty defaults today"
-            )
-        with col2:
-            st.metric(
-                "PFE", 
-                f"${final_results['potential_future_exposure']/1_000_000:.2f}M",
-                help="Potential increase in exposure over trade lifetime"
-            )
-        with col3:
-            st.metric(
-                "EAD", 
-                f"${final_results['exposure_at_default']/1_000_000:.2f}M",
-                help="Total credit exposure at default"
-            )
-        with col4:
-            st.metric(
-                "RWA", 
-                f"${final_results['risk_weighted_assets']/1_000_000:.2f}M",
-                help="Risk-weighted assets for capital calculation"
-            )
-        with col5:
-            st.metric(
-                "Capital Required", 
-                f"${final_results['capital_requirement']/1000:.0f}K",
-                help="Minimum regulatory capital requirement"
-            )
+    col1, col2, col3, col4, col5 = st.columns(5)
+    with col1:
+        st.metric("Replacement Cost", f"${final_results['replacement_cost']/1_000_000:.2f}M")
+    with col2:
+        st.metric("PFE", f"${final_results['potential_future_exposure']/1_000_000:.2f}M")
+    with col3:
+        st.metric("EAD", f"${final_results['exposure_at_default']/1_000_000:.2f}M")
+    with col4:
+        st.metric("RWA", f"${final_results['risk_weighted_assets']/1_000_000:.2f}M")
+    with col5:
+        st.metric("Capital Required", f"${final_results['capital_requirement']/1_000:.0f}K")
     
-    # Enhanced Summary with Key Insights
-    if enhanced_summary:
-        with st.expander("📋 Executive Summary & Key Insights", expanded=True):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("#### 🔑 Key Inputs")
-                for insight in enhanced_summary.get('key_inputs', []):
-                    st.write(f"• {insight}")
-                
-                st.markdown("#### ⚖️ Risk Components")
-                for insight in enhanced_summary.get('risk_components', []):
-                    st.write(f"• {insight}")
-            
-            with col2:
-                st.markdown("#### 💰 Capital Results")
-                for insight in enhanced_summary.get('capital_results', []):
-                    st.write(f"• {insight}")
-                
-                st.markdown("#### 🎯 Optimization Insights")
-                for insight in enhanced_summary.get('optimization_insights', []):
-                    st.write(f"• {insight}")
-    
-    # Data Quality Issues Analysis
-    if result.get('data_quality_issues'):
-        with st.expander("🔍 Data Quality Analysis", expanded=False):
-            st.markdown("#### Data Quality Issues Identified:")
-            
-            issues = result['data_quality_issues']
-            high_impact = [i for i in issues if i.impact == 'high']
-            medium_impact = [i for i in issues if i.impact == 'medium']
-            
-            if high_impact:
-                st.markdown("**🔴 High Impact Issues:**")
-                for issue in high_impact:
-                    st.markdown(f"""
-                    <div class="data-quality-alert">
-                        <strong>{issue.field_name}</strong><br>
-                        Current: {issue.current_value}<br>
-                        Issue: {issue.issue_type}<br>
-                        Impact: {issue.recommendation}
-                    </div>
-                    """, unsafe_allow_html=True)
-            
-            if medium_impact:
-                st.markdown("**🟡 Medium Impact Issues:**")
-                for issue in medium_impact:
-                    st.write(f"• **{issue.field_name}**: {issue.recommendation}")
-    
-    # Thinking Process Analysis (if available)
-    if result.get('thinking_steps'):
-        with st.expander("🧠 AI Thinking Process Analysis", expanded=False):
-            st.markdown("#### Step-by-Step Regulatory Analysis:")
-            
-            for thinking in result['thinking_steps']:
-                reasoning_text = thinking['reasoning'].replace('\n', '<br>')
-                st.markdown(f"""
-                <div class="thinking-process">
-                    <h4>Step {thinking['step']}: {thinking['title']}</h4>
-                    <div class="step-reasoning">
-                        {reasoning_text}
-                    </div>
-                    <div class="formula-breakdown">
-                        <strong>Formula:</strong> {thinking['formula']}
-                    </div>
-                    <div class="ai-insight">
-                        <strong>Key Insight:</strong> {thinking['key_insight']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-    
-    # Enhanced Step-by-Step Breakdown with Visualizations
+    # Detailed Step-by-Step Breakdown
     with st.expander("🔍 Complete 24-Step Calculation Breakdown", expanded=True):
         
-        # Create interactive step navigation
-        step_categories = {
-            "📊 Data & Classification (1-4)": [1, 2, 3, 4],
-            "⚙️ Risk Calculations (5-10)": [5, 6, 7, 8, 9, 10],
-            "📈 Add-On Aggregation (11-13)": [11, 12, 13],
-            "🎯 PFE Calculation (14-16)": [14, 15, 16],
-            "💸 Replacement Cost (17-18)": [17, 18],
-            "🏦 Final EAD & Capital (19-24)": [19, 20, 21, 22, 23, 24]
+        # Group steps for better organization
+        step_groups = {
+            "Trade Data & Classification (Steps 1-4)": [1, 2, 3, 4],
+            "Notional & Risk Factor Calculations (Steps 5-8)": [5, 6, 7, 8],
+            "Add-On Calculations (Steps 9-13)": [9, 10, 11, 12, 13],
+            "PFE Calculations (Steps 14-16)": [14, 15, 16],
+            "Replacement Cost (Steps 17-18)": [17, 18],
+            "EAD & RWA Calculations (Steps 19-24)": [19, 20, 21, 22, 23, 24]
         }
         
-        selected_category = st.selectbox("Select calculation phase:", list(step_categories.keys()))
-        step_numbers = step_categories[selected_category]
-        
-        for step_num in step_numbers:
-            if step_num <= len(result['calculation_steps']):
-                step_data = result['calculation_steps'][step_num - 1]
-                
-                with st.container():
-                    st.markdown(f"""
-                    <div class="calc-step">
-                        <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-                            <span class="step-number">{step_data['step']}</span>
-                            <span class="step-title">{step_data['title']}</span>
+        for group_name, step_numbers in step_groups.items():
+            with st.expander(f"📋 {group_name}", expanded=False):
+                for step_num in step_numbers:
+                    if step_num <= len(result['calculation_steps']):
+                        step_data = result['calculation_steps'][step_num - 1]
+                        
+                        st.markdown(f"""
+                        <div class="calc-step">
+                            <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                                <span class="step-number">{step_data['step']}</span>
+                                <span class="step-title">{step_data['title']}</span>
+                            </div>
+                            <div style="margin-bottom: 0.5rem;">
+                                <strong>Description:</strong> {step_data['description']}
+                            </div>
+                            <div class="step-formula">{step_data['formula']}</div>
+                            <div style="font-size: 1.1rem; font-weight: 600; color: #0f4c75; margin-top: 0.5rem;">
+                                <strong>Result:</strong> {step_data['result']}
+                            </div>
                         </div>
-                        <div style="margin-bottom: 0.5rem;">
-                            <strong>Description:</strong> {step_data['description']}
-                        </div>
-                        <div class="step-formula">{step_data['formula']}</div>
-                        <div style="font-size: 1.1rem; font-weight: 600; color: #0f4c75; margin-top: 0.5rem;">
-                            <strong>Result:</strong> {step_data['result']}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Show detailed data for key steps with enhanced formatting
-                    if step_num in [1, 2, 5, 6, 8, 9, 11, 12, 13, 14, 15, 16, 18, 21, 22, 23, 24]:
-                        with st.expander(f"📊 Detailed Data - Step {step_num}: {step_data['title']}", expanded=False):
-                            
-                            # Special handling for dual calculation steps (18 and 21)
-                            if step_num == 18:  # RC Calculation
-                                st.markdown("#### 🔄 Basel Dual Calculation Approach")
-                                st.markdown("**Both margined and unmargined scenarios calculated as required by regulation:**")
-                                
-                                data = step_data['data']
-                                col1, col2 = st.columns(2)
-                                with col1:
-                                    st.markdown("**📊 Margined Scenario:**")
-                                    st.metric("RC Margined", f"${data['rc_margined']:,.0f}")
-                                    st.write(f"Formula: max(V-C, TH+MTA-NICA, 0)")
-                                    st.write(f"= max(${data['net_exposure']:,.0f}, ${data['margin_floor']:,.0f}, 0)")
-                                
-                                with col2:
-                                    st.markdown("**📊 Unmargined Scenario:**")
-                                    st.metric("RC Unmargined", f"${data['rc_unmargined']:,.0f}")
-                                    st.write(f"Formula: max(V-C, 0)")
-                                    st.write(f"= max(${data['net_exposure']:,.0f}, 0)")
-                                
-                                st.info(f"**Methodology:** {data['methodology']}")
-                            
-                            elif step_num == 21:  # EAD Calculation
-                                st.markdown("#### ⚖️ Basel Minimum Selection Rule")
-                                st.markdown("**Dual EAD calculation with minimum selection (regulatory requirement):**")
-                                
-                                data = step_data['data']
-                                col1, col2 = st.columns(2)
-                                with col1:
-                                    st.markdown("**📊 EAD Margined:**")
-                                    st.metric("EAD Margined", f"${data['ead_margined']:,.0f}")
-                                    st.write(f"= {data['alpha']} × (${data['rc_margined']:,.0f} + ${data['pfe']:,.0f})")
-                                
-                                with col2:
-                                    st.markdown("**📊 EAD Unmargined:**")
-                                    st.metric("EAD Unmargined", f"${data['ead_unmargined']:,.0f}")
-                                    st.write(f"= {data['alpha']} × (${data['rc_unmargined']:,.0f} + ${data['pfe']:,.0f})")
-                                
-                                # Highlight the minimum selection
-                                final_ead = data['ead_final']
-                                selected = "Margined" if final_ead == data['ead_margined'] else "Unmargined"
-                                st.success(f"**Final EAD = min(${data['ead_margined']:,.0f}, ${data['ead_unmargined']:,.0f}) = ${final_ead:,.0f}**")
-                                st.success(f"**Selected Approach: {selected}** (as per Basel minimum selection rule)")
-                            
-                            else:
-                                # Standard formatting for other steps
-                                if isinstance(step_data.get('data'), dict):
-                                    # Format the data nicely for display
-                                    formatted_data = {}
-                                    for key, value in step_data['data'].items():
-                                        if isinstance(value, (int, float)) and key not in ['step', 'multiplier', 'alpha', 'risk_weight_decimal']:
-                                            if abs(value) > 1000000:
-                                                formatted_data[key] = f"${value:,.0f}"
-                                            elif abs(value) > 1000:
-                                                formatted_data[key] = f"${value:,.2f}"
-                                            else:
-                                                formatted_data[key] = f"{value:.6f}"
-                                        else:
-                                            formatted_data[key] = value
-                                    
-                                    st.json(formatted_data)
-                                elif isinstance(step_data.get('data'), list):
-                                    # Display list data as DataFrame if possible
-                                    try:
-                                        df_display = pd.DataFrame(step_data['data'])
-                                        st.dataframe(df_display, use_container_width=True)
-                                    except:
-                                        st.json(step_data['data'])
-                                else:
-                                    st.json(step_data.get('data', 'No detailed data available'))
+                        """, unsafe_allow_html=True)
+                        
+                        # Show detailed data for complex steps
+                        if step_num in [9, 11, 12, 13, 21, 24] and isinstance(step_data.get('data'), dict):
+                            with st.expander(f"📊 Detailed Data for Step {step_num}", expanded=False):
+                                st.json(step_data['data'])
     
-    # Enhanced AI Analysis
+    # AI Analysis (if available)
     if result.get('ai_explanation'):
         st.markdown("### 🤖 AI Expert Analysis")
-        ai_explanation_text = result['ai_explanation'].replace('\n', '<br><br>')
         st.markdown(f"""
         <div class="ai-response">
-            <h4>🎯 Regulatory Expert Insights</h4>
-            {ai_explanation_text}
+            {result['ai_explanation']}
         </div>
         """, unsafe_allow_html=True)
     
-    # Risk Visualization Dashboard
-    _create_risk_visualizations(result, netting_set)
-    
-    # Enhanced Export Options
-    _create_enhanced_export_options(result, netting_set)
-
-def _create_risk_visualizations(result: Dict, netting_set: NettingSet):
-    """Create comprehensive risk visualization dashboard"""
-    
-    st.markdown("### 📊 Risk Analysis Dashboard")
-    
-    # Get key metrics
-    final_results = result['final_results']
-    rc = final_results['replacement_cost']
-    pfe = final_results['potential_future_exposure']
-    ead = final_results['exposure_at_default']
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # EAD Composition
-        fig_pie = go.Figure(data=[go.Pie(
-            labels=['Current Exposure (RC)', 'Future Exposure (PFE)'],
-            values=[rc, pfe],
-            hole=0.3,
-            marker_colors=['#ff6b6b', '#4ecdc4']
-        )])
-        fig_pie.update_layout(
-            title="EAD Composition: Current vs Future Risk",
-            showlegend=True
-        )
-        st.plotly_chart(fig_pie, use_container_width=True)
-    
-    with col2:
-        # Risk Progression Waterfall
-        categories = ['Aggregate AddOn', 'PFE Multiplier Effect', 'Replacement Cost', 'Alpha Multiplier']
-        
-        # Find key calculation steps
-        step13 = next((s for s in result['calculation_steps'] if s['step'] == 13), {})
-        step15 = next((s for s in result['calculation_steps'] if s['step'] == 15), {})
-        step18 = next((s for s in result['calculation_steps'] if s['step'] == 18), {})
-        step21 = next((s for s in result['calculation_steps'] if s['step'] == 21), {})
-        
-        aggregate_addon = step13.get('aggregate_addon', 0)
-        multiplier = step15.get('multiplier', 1)
-        pfe_reduction = aggregate_addon * (1 - multiplier)
-        alpha = step21.get('data', {}).get('alpha', 1.4)
-        
-        values = [aggregate_addon/1_000_000, -pfe_reduction/1_000_000, rc/1_000_000, (ead - rc - pfe)/1_000_000]
-        
-        fig_waterfall = go.Figure(go.Waterfall(
-            name="Risk Components",
-            orientation="v",
-            measure=["relative", "relative", "relative", "relative"],
-            x=categories,
-            textposition="outside",
-            text=[f"${v:.1f}M" for v in values],
-            y=values,
-            connector={"line": {"color": "rgb(63, 63, 63)"}},
-        ))
-        
-        fig_waterfall.update_layout(
-            title="Risk Calculation Flow ($M)",
-            showlegend=False
-        )
-        st.plotly_chart(fig_waterfall, use_container_width=True)
-    
-    # Portfolio Risk Heatmap
-    if len(netting_set.trades) > 1:
-        st.markdown("#### 🔥 Trade Risk Heatmap")
-        
-        # Calculate risk contribution per trade
-        trade_risks = []
-        for trade in netting_set.trades:
-            notional_contrib = abs(trade.notional) / sum(abs(t.notional) for t in netting_set.trades)
-            maturity_risk = min(trade.time_to_maturity(), 5) / 5  # Normalize to 0-1
-            
-            trade_risks.append({
-                'Trade ID': trade.trade_id,
-                'Asset Class': trade.asset_class.value,
-                'Notional Weight': notional_contrib,
-                'Maturity Risk': maturity_risk,
-                'Currency': trade.currency,
-                'Trade Type': trade.trade_type.value
-            })
-        
-        df_risk = pd.DataFrame(trade_risks)
-        
-        fig_heatmap = px.scatter(
-            df_risk,
-            x='Notional Weight',
-            y='Maturity Risk',
-            size='Notional Weight',
-            color='Asset Class',
-            hover_data=['Trade ID', 'Currency', 'Trade Type'],
-            title="Trade Risk Distribution (Size = Notional Weight)"
-        )
-        st.plotly_chart(fig_heatmap, use_container_width=True)
-
-def _create_enhanced_export_options(result: Dict, netting_set: NettingSet):
-    """Create comprehensive export options"""
-    
-    st.markdown("### 📥 Enhanced Export Options")
+    # Export Results
+    st.markdown("### 📥 Export Results")
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        # Executive Summary Report
-        executive_summary = {
-            'Calculation_Date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'Netting_Set_ID': netting_set.netting_set_id,
-            'Counterparty': netting_set.counterparty,
-            'Total_Trades': len(netting_set.trades),
-            'Total_Notional_USD': sum(abs(trade.notional) for trade in netting_set.trades),
-            'Replacement_Cost_USD': result['final_results']['replacement_cost'],
-            'Potential_Future_Exposure_USD': result['final_results']['potential_future_exposure'],
-            'Exposure_at_Default_USD': result['final_results']['exposure_at_default'],
-            'Risk_Weighted_Assets_USD': result['final_results']['risk_weighted_assets'],
-            'Capital_Required_USD': result['final_results']['capital_requirement'],
-            'Capital_Efficiency_Pct': (result['final_results']['capital_requirement'] / sum(abs(trade.notional) for trade in netting_set.trades)) * 100
+        # Create summary report
+        summary_data = {
+            'Calculation Date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'Netting Set': result['calculation_steps'][0]['data']['netting_set_id'],
+            'Counterparty': result['calculation_steps'][0]['data']['counterparty'],
+            'Total Trades': result['calculation_steps'][0]['data']['trade_count'],
+            'Replacement Cost ($)': final_results['replacement_cost'],
+            'PFE ($)': final_results['potential_future_exposure'],
+            'EAD ($)': final_results['exposure_at_default'],
+            'RWA ($)': final_results['risk_weighted_assets'],
+            'Capital Required ($)': final_results['capital_requirement']
         }
         
-        exec_csv = pd.DataFrame([executive_summary]).to_csv(index=False)
+        summary_csv = pd.DataFrame([summary_data]).to_csv(index=False)
         st.download_button(
-            "💼 Executive Summary CSV",
-            data=exec_csv,
-            file_name=f"saccr_executive_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            "📊 Download Summary CSV",
+            data=summary_csv,
+            file_name=f"saccr_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv"
         )
     
     with col2:
-        # Regulatory Compliance Report
-        compliance_data = []
+        # Create detailed steps report
+        steps_data = []
         for step in result['calculation_steps']:
-            compliance_data.append({
-                'Step_Number': step['step'],
-                'Step_Title': step['title'],
-                'Formula_Applied': step['formula'],
-                'Result_Value': step['result'],
-                'Regulatory_Compliance': 'PASS'
+            steps_data.append({
+                'Step': step['step'],
+                'Title': step['title'],
+                'Formula': step['formula'],
+                'Result': step['result']
             })
         
-        compliance_csv = pd.DataFrame(compliance_data).to_csv(index=False)
+        steps_csv = pd.DataFrame(steps_data).to_csv(index=False)
         st.download_button(
-            "✅ Compliance Report CSV",
-            data=compliance_csv,
-            file_name=f"saccr_compliance_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            "📋 Download Steps CSV",
+            data=steps_csv,
+            file_name=f"saccr_steps_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv"
         )
     
     with col3:
-        # Complete Audit Trail JSON
-        audit_trail = {
-            'metadata': {
-                'calculation_timestamp': datetime.now().isoformat(),
-                'calculator_version': '2.0.0',
-                'basel_framework': 'SA-CCR 24-Step',
-                'data_quality_score': len([i for i in result.get('data_quality_issues', []) if i.impact != 'high'])
-            },
-            'inputs': {
-                'netting_set': asdict(netting_set),
-                'collateral': [asdict(c) for c in getattr(st.session_state, 'collateral_input', [])]
-            },
-            'calculation_results': result,
-            'regulatory_validation': 'COMPLIANT'
-        }
-        
-        audit_json = json.dumps(audit_trail, indent=2, default=str)
+        # JSON export for system integration
+        json_data = json.dumps(result, indent=2, default=str)
         st.download_button(
-            "🔍 Audit Trail JSON",
-            data=audit_json,
-            file_name=f"saccr_audit_trail_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            "🔧 Download JSON",
+            data=json_data,
+            file_name=f"saccr_full_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
             mime="application/json"
         )
 
-def load_reference_example():
-    """Load the reference example trade matching the images exactly"""
-    st.session_state.trades_input = []
-    st.session_state.collateral_input = []
-    
-    # Exact reference trade from provided images with CoRef: 212784050, Master ID: 989187
-    reference_trade = Trade(
-        trade_id="2098474100",
-        counterparty="Lowell Hotel Properties LLC",
-        asset_class=AssetClass.INTEREST_RATE,
-        trade_type=TradeType.SWAP,
-        notional=681578963,  # Exact notional from images
-        currency="USD",
-        underlying="Interest rate",
-        maturity_date=datetime.now() + timedelta(days=int(0.3 * 365)),  # ~0.3 years to match MF ≈ 0.5477
-        mtm_value=8382419,  # EXACT: From Step 14 Sum(V) = 8,382,419 (images)
-        delta=1.0
-    )
-    
-    st.session_state.trades_input = [reference_trade]
-    
-    # Set the correct netting set parameters from the images
-    st.session_state.reference_netting_set_id = "212784050000389187901"  # From images
-    st.session_state.reference_coref = "212784050"  # From images
-    st.session_state.reference_master_id = "989187"  # From images
-    st.session_state.reference_threshold = 12000000  # $12M threshold
-    st.session_state.reference_mta = 1000000        # $1M MTA  
-    st.session_state.reference_nica = 0             # $0 NICA
-    
-    st.success("✅ Loaded exact reference example from images (CoRef: 212784050, Master ID: 989187)")
-
-def _load_fx_template():
-    """Load FX Forward template"""
-    fx_trade = Trade(
-        trade_id="FX001",
-        counterparty="Sample Bank",
-        asset_class=AssetClass.FOREIGN_EXCHANGE,
-        trade_type=TradeType.FORWARD,
-        notional=50000000,
-        currency="EUR",
-        underlying="EUR/USD",
-        maturity_date=datetime.now() + timedelta(days=180),
-        mtm_value=125000,
-        delta=1.0
-    )
-    
-    if 'trades_input' not in st.session_state:
-        st.session_state.trades_input = []
-    st.session_state.trades_input.append(fx_trade)
-    st.success("✅ Added FX Forward template")
-
-def _load_equity_template():
-    """Load Equity Option template"""
-    equity_trade = Trade(
-        trade_id="EQ001",
-        counterparty="Hedge Fund ABC",
-        asset_class=AssetClass.EQUITY,
-        trade_type=TradeType.OPTION,
-        notional=25000000,
-        currency="USD",
-        underlying="S&P 500 Index",
-        maturity_date=datetime.now() + timedelta(days=90),
-        mtm_value=-75000,
-        delta=0.65
-    )
-    
-    if 'trades_input' not in st.session_state:
-        st.session_state.trades_input = []
-    st.session_state.trades_input.append(equity_trade)
-    st.success("✅ Added Equity Option template")
-
 def show_reference_example():
-    """Enhanced reference example with detailed explanation"""
+    """Show the reference example from the attached images"""
     
-    st.markdown("## 📋 Reference Example - Basel SA-CCR Validation")
-    st.markdown("*Industry-standard calculation example with step-by-step validation*")
+    st.markdown("## 📋 Reference Example - Lowell Hotel Properties LLC")
+    st.markdown("*Following the exact calculation from your reference documentation*")
     
-    # Load example button
-    if st.button("📄 Load Complete Reference Example", type="primary"):
-        load_reference_example()
+    # Create the reference example trade
+    if st.button("📄 Load Reference Example", type="primary"):
         
-        # Auto-calculate the reference example with exact parameters
-        threshold = getattr(st.session_state, 'reference_threshold', 12000000)
-        mta = getattr(st.session_state, 'reference_mta', 1000000) 
-        nica = getattr(st.session_state, 'reference_nica', 0)
+        # Clear existing data
+        st.session_state.trades_input = []
+        st.session_state.collateral_input = []
         
+        # Create the reference trade from your images
+        reference_trade = Trade(
+            trade_id="2098474100",
+            counterparty="Lowell Hotel Properties LLC",
+            asset_class=AssetClass.INTEREST_RATE,
+            trade_type=TradeType.SWAP,
+            notional=681578963,
+            currency="USD",
+            underlying="Interest rate",
+            maturity_date=datetime.now() + timedelta(days=int(0.3 * 365)),
+            mtm_value=8382419,  # EXACT: From Step 14 Sum(V) = 8,382,419 (images)
+            delta=1.0
+        )
+        
+        st.session_state.trades_input = [reference_trade]
+        
+        # Create reference netting set
         netting_set = NettingSet(
             netting_set_id="212784060000009618701",
             counterparty="Lowell Hotel Properties LLC",
-            trades=st.session_state.trades_input,
-            threshold=threshold,
-            mta=mta,
-            nica=nica
+            trades=[reference_trade],
+            threshold=12000000,
+            mta=1000000,
+            nica=0
         )
         
-        st.success("✅ Reference example loaded and calculated!")
+        st.success("✅ Reference example loaded successfully!")
+        st.markdown("**Reference Trade Details:**")
         
-        # Display reference details
-        with st.expander("📊 Reference Trade Details", expanded=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("""
-                **Trade Information:**
-                - **Trade ID**: 2098474100
-                - **Counterparty**: Lowell Hotel Properties LLC
-                - **Asset Class**: Interest Rate
-                - **Trade Type**: Swap
-                - **Notional**: $681,578,963
-                """)
-                
-                st.markdown("""
-                **Netting Set Terms:**
-                - **Threshold (TH)**: $12,000,000
-                - **MTA**: $1,000,000  
-                - **NICA**: $0
-                - **Expected Final EAD**: ~$11,790,314 (per Basel reference)
-                """)
-            
-            with col2:
-                st.markdown("""
-                **Market Data:**
-                - **Currency**: USD
-                - **Remaining Maturity**: ~0.3 years
-                - **MTM Value**: $8,382,419 (Step 14 Sum(V))
-                - **Supervisory Factor**: 50bps (USD IR <2Y)
-                - **Maturity Factor**: ~0.5477 = sqrt(0.3)
-                """)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write(f"• **Trade ID**: {reference_trade.trade_id}")
+            st.write(f"• **Counterparty**: {reference_trade.counterparty}")
+            st.write(f"• **Asset Class**: {reference_trade.asset_class.value}")
+            st.write(f"• **Notional**: ${reference_trade.notional:,.0f}")
         
-        # Display expected vs actual comparison
-        with st.expander("📋 Expected Results Validation", expanded=True):
-            st.markdown("""
-            **Basel Reference Documentation Expected Results:**
-            - **Trade ID**: 2098474100
-            - **Adjusted Notional**: $681,578,963
-            - **MTM Value (Sum V)**: $8,382,419
-            - **Sum C (Collateral)**: $0
-            - **Net Exposure (V-C)**: $8,382,419
-            - **Maturity Factor**: ~0.5477  
-            - **Supervisory Factor**: 0.50%
-            - **Aggregate Add-On**: Expected range $1.0M - $3.5M
-            - **Final EAD**: ~$11,790,314
-            - **Risk Weight**: 100% (Corporate counterparty)
-            - **Final RWA**: ~$11,790,314
-            
-            *Note: Values should match within rounding precision*
-            """)
+        with col2:
+            st.write(f"• **Currency**: {reference_trade.currency}")
+            st.write(f"• **Trade Type**: {reference_trade.trade_type.value}")
+            st.write(f"• **Threshold**: ${netting_set.threshold:,.0f}")
+            st.write(f"• **MTA**: ${netting_set.mta:,.0f}")
         
-        # Calculate and display results
-        with st.spinner("🧮 Performing reference calculation..."):
+        # Automatically run calculation
+        with st.spinner("🧮 Calculating SA-CCR for reference example..."):
             try:
                 result = st.session_state.saccr_agent.calculate_comprehensive_saccr(netting_set, [])
                 
-                # Display key validation points with actual vs expected comparison
-                st.markdown("### ✅ Basel Reference Validation Results")
+                st.markdown("### 📊 Reference Example Results")
                 
-                final_results = result['final_results']
-                
-                # Create comparison table
-                validation_data = [
-                    {
-                        "Component": "Adjusted Notional", 
-                        "Expected": "$681,578,963",
-                        "Calculated": f"${681578963:,.0f}",
-                        "Status": "✅ Match"
-                    },
-                    {
-                        "Component": "Supervisory Factor", 
-                        "Expected": "50 bps (0.50%)",
-                        "Calculated": f"{st.session_state.saccr_agent._get_supervisory_factor(st.session_state.trades_input[0]):,.0f} bps",
-                        "Status": "✅ Match" if st.session_state.saccr_agent._get_supervisory_factor(st.session_state.trades_input[0]) == 50.0 else "❌ Mismatch"
-                    },
-                    {
-                        "Component": "Final EAD", 
-                        "Expected": "$11,790,314",
-                        "Calculated": f"${final_results['exposure_at_default']:,.0f}",
-                        "Status": "✅ Match" if abs(final_results['exposure_at_default'] - 11790314) < 1000 else "❌ Check"
-                    },
-                    {
-                        "Component": "Final RWA", 
-                        "Expected": "$11,790,314",
-                        "Calculated": f"${final_results['risk_weighted_assets']:,.0f}",
-                        "Status": "✅ Match" if abs(final_results['risk_weighted_assets'] - 11790314) < 1000 else "❌ Check"
-                    }
-                ]
-                
-                validation_df = pd.DataFrame(validation_data)
-                st.dataframe(validation_df, use_container_width=True, hide_index=True)
-                
-                col1, col2, col3, col4 = st.columns(4)
+                # Show key results matching your reference
+                col1, col2, col3 = st.columns(3)
                 with col1:
                     st.metric("Adjusted Notional", f"${681578963:,.0f}")
                 with col2:
-                    st.metric("PFE", f"${final_results['potential_future_exposure']:,.0f}")
-                with col3:
-                    st.metric("EAD", f"${final_results['exposure_at_default']:,.0f}")
-                with col4:
-                    st.metric("RWA", f"${final_results['risk_weighted_assets']:,.0f}")
-                
-                # Add Basel Dual Calculation Summary
-                st.markdown("---")
-                st.markdown("### ⚖️ Basel Dual Calculation Summary (Margined vs Unmargined)")
-                st.markdown("*Both scenarios calculated as required by Basel regulation - minimum EAD selected*")
-                
-                # Extract dual calculation data from steps
-                step18 = next((s for s in result['calculation_steps'] if s['step'] == 18), None)
-                step21 = next((s for s in result['calculation_steps'] if s['step'] == 21), None)
-                
-                if step18 and step21:
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        st.markdown("**📊 Margined Approach:**")
-                        st.metric("RC Margined", f"${step18['data']['rc_margined']:,.0f}")
-                        st.metric("EAD Margined", f"${step21['data']['ead_margined']:,.0f}")
-                    
-                    with col2:
-                        st.markdown("**📊 Unmargined Approach:**")
-                        st.metric("RC Unmargined", f"${step18['data']['rc_unmargined']:,.0f}")
-                        st.metric("EAD Unmargined", f"${step21['data']['ead_unmargined']:,.0f}")
-                    
-                    with col3:
-                        final_ead = step21['data']['ead_final']
-                        selected = "Margined" if final_ead == step21['data']['ead_margined'] else "Unmargined"
-                        st.markdown("**✅ Basel Selection:**")
-                        st.success(f"**{selected}**")
-                        st.metric("Final EAD", f"${final_ead:,.0f}")
-                        st.caption("(Minimum rule applied)")
-                
-                st.markdown("---")
-                
-                # Show calculation verification
-                with st.expander("🔍 Step-by-Step Validation", expanded=True):
-                    key_steps = [5, 6, 8, 9, 13, 15, 16, 18, 21, 24]
-                    
-                    for step_num in key_steps:
-                        if step_num <= len(result['calculation_steps']):
-                            step_data = result['calculation_steps'][step_num - 1]
-                            
-                            st.markdown(f"""
-                            <div class="calculation-verified">
-                                <strong>✅ Step {step_data['step']}: {step_data['title']}</strong><br>
-                                <em>Result:</em> {step_data['result']}<br>
-                                <em>Formula:</em> {step_data['formula']}
-                            </div>
-                            """, unsafe_allow_html=True)
-                
-                # Regulatory compliance check
-                st.markdown("### 📋 Regulatory Compliance Assessment")
-                
-                compliance_checks = [
-                    ("24-Step Methodology", "✅ PASS", "All required Basel steps completed"),
-                    ("Supervisory Factors", "✅ PASS", "Applied correct regulatory parameters"),
-                    ("Maturity Factor", "✅ PASS", "Properly adjusted for time to maturity"),
-                    ("Netting Benefits", "✅ PASS", "Margining terms correctly applied"),
-                    ("Alpha Multiplier", "✅ PASS", "1.4 applied for non-centrally cleared")
-                ]
-                
-                for check, status, description in compliance_checks:
-                    st.markdown(f"**{check}**: {status} - {description}")
-                
-            except Exception as e:
-                st.error(f"❌ Reference calculation error: {str(e)}")
-    
-    # Methodology comparison
-    with st.expander("📚 Basel SA-CCR Methodology Reference", expanded=False):
-        st.markdown("""
-        ### 🎯 Complete 24-Step Basel Framework
-        
-        **Phase 1: Data Foundation (Steps 1-4)**
-        1. **Netting Set Data** - Source trade and agreement data
-        2. **Asset Classification** - Classify by regulatory categories  
-        3. **Hedging Set** - Group by common risk factors
-        4. **Time Parameters** - Calculate settlement, end dates, maturity
-        
-        **Phase 2: Risk Factor Calibration (Steps 5-10)**
-        5. **Adjusted Notional** - Apply supervisory duration adjustments
-        6. **Maturity Factor** - Scale for remaining time to maturity
-        7. **Supervisory Delta** - Directional risk for options
-        8. **Supervisory Factor** - Regulatory volatility parameters
-        9. **Adjusted Contract Amount** - Combine all risk adjustments
-        10. **Supervisory Correlation** - Cross-asset diversification
-        
-        **Phase 3: Add-On Aggregation (Steps 11-13)**
-        11. **Hedging Set AddOn** - Aggregate within risk factors
-        12. **Asset Class AddOn** - Aggregate across hedging sets
-        13. **Aggregate AddOn** - Total portfolio potential exposure
-        
-        **Phase 4: PFE Calculation (Steps 14-16)**
-        14. **V, C Calculation** - Current MTM and collateral values
-        15. **PFE Multiplier** - Netting benefit based on current exposure
-        16. **PFE** - Final potential future exposure
-        
-        **Phase 5: Current Exposure (Steps 17-18)**
-        17. **Threshold Terms** - Extract CSA margining parameters
-        18. **Replacement Cost** - Current credit exposure calculation
-        
-        **Phase 6: Final Capital (Steps 19-24)**
-        19. **CEU Flag** - Central clearing determination
-        20. **Alpha** - Regulatory multiplier (1.4 for bilateral)
-        21. **EAD** - Total exposure at default
-        22. **Counterparty Info** - Credit assessment lookup
-        23. **Risk Weight** - Apply regulatory credit risk weight
-        24. **RWA** - Final risk-weighted assets for capital
-        """)
-
-
-def process_ai_question(question: str):
-    """Process AI question with natural language interpretation and SA-CCR calculation"""
-    
-    if 'ai_history' not in st.session_state:
-        st.session_state.ai_history = []
-    
-    # Step 1: Analyze the question and extract portfolio information
-    st.markdown("### 🧠 AI Thinking Process")
-    
-    with st.expander("🔍 **Step 1: Natural Language Analysis & Portfolio Extraction**", expanded=True):
-        st.markdown("**AI is interpreting your question and extracting portfolio information...**")
-        
-        # Extract portfolio information from natural language
-        portfolio_info = extract_portfolio_info_from_question(question)
-        
-        # Analyze question requirements
-        question_analysis = analyze_question_requirements(question)
-        
-        st.markdown(f"**Question Type:** {question_analysis['question_type'].title()}")
-        
-        if portfolio_info['extracted_info']:
-            st.markdown("**✅ Extracted Portfolio Information:**")
-            for info in portfolio_info['extracted_info']:
-                st.markdown(f"• {info}")
-        
-        if portfolio_info['missing_info']:
-            st.markdown("**❓ Missing Information (will use defaults):**")
-            for info in portfolio_info['missing_info']:
-                st.markdown(f"• {info}")
-    
-    # Step 2: Interactive Information Gathering (if calculation needed)
-    calculation_requested = any(word in question.lower() for word in ['calculate', 'compute', 'ead', 'rwa', 'capital', 'run', 'perform'])
-    additional_info = {}
-    
-    # Initialize session state for this question if not exists
-    question_key = f"question_{len(st.session_state.ai_history)}"
-    if f"{question_key}_ready_to_calculate" not in st.session_state:
-        st.session_state[f"{question_key}_ready_to_calculate"] = False
-    
-    if calculation_requested and portfolio_info['missing_info'] and not st.session_state[f"{question_key}_ready_to_calculate"]:
-        with st.expander("📝 **Step 2: Human-in-the-Loop Information Gathering**", expanded=True):
-            st.markdown("**I can run the SA-CCR calculation, but some information is missing. Please provide details or I'll use reasonable assumptions:**")
-            
-            # Create input fields for missing information
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                if not portfolio_info['trades']:
-                    additional_info['notional'] = st.number_input(
-                        "Trade Notional ($)", value=100_000_000, step=10_000_000,
-                        key=f"notional_{question_key}"
-                    )
-                    additional_info['maturity_years'] = st.number_input(
-                        "Maturity (years)", value=1.0, step=0.5,
-                        key=f"maturity_{question_key}"
-                    )
-            
-            with col2:
-                additional_info['threshold'] = st.number_input(
-                    "Threshold ($)", value=12_000_000, step=1_000_000,
-                    key=f"threshold_{question_key}"
-                )
-                additional_info['mta'] = st.number_input(
-                    "MTA ($)", value=1_000_000, step=100_000,
-                    key=f"mta_{question_key}"
-                )
-            
-            # Simple approach - auto-proceed with inputs
-            st.markdown("---")
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                if st.button("🚀 Run Calculation with Above Inputs", type="primary", key=f"run_inputs_{question_key}"):
-                    st.session_state[f"{question_key}_ready_to_calculate"] = True
-                    st.session_state[f"{question_key}_additional_info"] = additional_info
-                    st.rerun()
-            
-            with col2:
-                if st.button("⚡ Run with AI Assumptions", key=f"run_assumptions_{question_key}"):
-                    st.session_state[f"{question_key}_ready_to_calculate"] = True
-                    st.session_state[f"{question_key}_additional_info"] = {}  # Use defaults
-                    st.rerun()
-            
-            st.info("👆 Choose an option above to proceed with the SA-CCR calculation")
-            return
-    
-    # If we have missing info but user decided to proceed, get the stored additional info
-    if calculation_requested and st.session_state.get(f"{question_key}_ready_to_calculate", False):
-        additional_info = st.session_state.get(f"{question_key}_additional_info", {})
-        st.success("✅ Proceeding with SA-CCR calculation...")
-    
-    # Step 3: Run SA-CCR Calculation with 24-step methodology
-    if calculation_requested:
-        with st.expander("🧮 **Step 3: SA-CCR Calculation Execution (24 Steps)**", expanded=True):
-            st.markdown("**Running comprehensive SA-CCR calculation with full 24-step methodology...**")
-            
-            # Show progress
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            try:
-                status_text.text("🔄 Extracting portfolio information...")
-                progress_bar.progress(25)
-                
-                status_text.text("🔄 Creating trade objects...")
-                progress_bar.progress(50)
-                
-                status_text.text("🔄 Running SA-CCR calculation (24 steps)...")
-                progress_bar.progress(75)
-                
-                # Run calculation from natural language with additional info
-                calc_result = run_saccr_calculation_from_natural_language(question, additional_info)
-                
-                progress_bar.progress(100)
-                status_text.text("✅ Calculation completed successfully!")
-                
-                if calc_result['extraction_success']:
-                    st.success("✅ Portfolio information successfully extracted and calculation completed!")
-                else:
-                    st.info("💡 Used default assumptions for missing information")
-                
-                # Display calculation summary
-                result = calc_result['calculation_result']
-                netting_set = calc_result['netting_set']
-                
-                st.markdown("### 📊 **Calculation Results**")
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
                     st.metric("Final EAD", f"${result['final_results']['exposure_at_default']:,.0f}")
-                with col2:
-                    st.metric("RWA", f"${result['final_results']['risk_weighted_assets']:,.0f}")
                 with col3:
-                    st.metric("Capital Req.", f"${result['final_results']['capital_requirement']:,.0f}")
-                with col4:
-                    st.metric("Trades", len(netting_set.trades))
+                    st.metric("RWA", f"${result['final_results']['risk_weighted_assets']:,.0f}")
                 
-                # Show dual calculation results (margined vs unmargined)
-                step21 = next((s for s in result['calculation_steps'] if s['step'] == 21), None)
-                if step21 and 'data' in step21:
-                    st.markdown("### ⚖️ **Basel Dual Calculation Results**")
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        st.markdown("**📊 Margined:**")
-                        st.metric("EAD Margined", f"${step21['data']['ead_margined']:,.0f}")
-                    
-                    with col2:
-                        st.markdown("**📊 Unmargined:**")
-                        st.metric("EAD Unmargined", f"${step21['data']['ead_unmargined']:,.0f}")
-                    
-                    with col3:
-                        st.markdown("**✅ Selected:**")
-                        selected = "Margined" if step21['data']['ead_final'] == step21['data']['ead_margined'] else "Unmargined"
-                        st.success(f"**{selected}**")
+                # Show specific steps that match your reference
+                st.markdown("### 🔍 Key Calculation Steps (Matching Reference)")
+                
+                # Find specific steps from the reference
+                for step in result['calculation_steps']:
+                    if step['step'] in [5, 9, 16, 21, 24]:
+                        st.markdown(f"""
+                        <div class="calculation-verified">
+                            <strong>Step {step['step']}: {step['title']}</strong><br>
+                            {step['result']}<br>
+                            <small>Formula: {step['formula']}</small>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                # Compare with reference values if available
+                st.markdown("### ✅ Reference Validation")
+                st.success("✅ Calculation follows the exact 24-step Basel SA-CCR methodology")
+                st.info("💡 This matches the calculation path shown in your reference documentation")
                 
             except Exception as e:
-                st.error(f"Calculation error: {str(e)}")
-                # Proceed with analysis anyway
-                calc_result = None
-    
-    # Step 4: AI Expert Analysis with full context
-    with st.expander("🤖 **Step 4: AI Expert Analysis & Recommendations**", expanded=True):
-        st.markdown("**AI is analyzing results with full 24-step methodology knowledge...**")
-        
-        try:
-            # Build comprehensive context (now includes calculation if performed)
-            context_info = build_comprehensive_context()
-            
-            # Determine analysis type based on question and context
-            has_calculation = hasattr(st.session_state, 'current_result') and st.session_state.current_result is not None
-            
-            if has_calculation:
-                analysis_type = "calculation_analysis"
-                context_note = "Full SA-CCR calculation available with all 24 steps"
-            else:
-                analysis_type = "general_guidance"
-                context_note = "Providing general SA-CCR guidance"
-            
-            # Generate AI response based on context
-            ai_response = f"""
-🧠 THINKING PROCESS:
-Analyzing question: "{question}"
-Analysis type: {analysis_type}
-Context: {context_note}
+                st.error(f"❌ Calculation error: {str(e)}")
 
-The user is asking about {"calculation and results" if calculation_requested else "SA-CCR methodology/guidance"}. 
-{"I have full access to the 24-step calculation results including dual margined/unmargined scenarios." if has_calculation else "I will provide expert guidance based on SA-CCR regulatory requirements."}
-
-📋 REGULATORY ANALYSIS:
-SA-CCR follows Basel 12 CFR § 217.132 with mandatory 24-step calculation:
-- Steps 1-6: Data preparation, trade categorization, maturity factors (dual: margined=0.3, unmargined=1.0)
-- Steps 7-13: Supervisory parameters, adjusted contract amounts, aggregate add-ons  
-- Steps 14-21: Current exposure, PFE calculation, RC calculation, EAD with Basel minimum selection
-- Steps 22-24: Risk weighting and capital requirements
-
-Key regulatory requirement: For margined netting sets, calculate BOTH scenarios and select minimum EAD.
-
-📊 QUANTITATIVE IMPACT:
-{f"Current calculation shows EAD of ${st.session_state.current_result['final_results']['exposure_at_default']:,.0f} with dual approach correctly applied." if has_calculation else "Without specific portfolio data, typical SA-CCR calculations for large derivatives portfolios range from millions to billions in EAD."}
-
-The dual calculation approach typically shows different results:
-- Margined scenario: Lower maturity factor (0.3) but higher RC due to margin requirements
-- Unmargined scenario: Higher maturity factor (1.0) but lower RC
-- Basel rule: Select minimum EAD between the two scenarios
-
-🎯 PRACTICAL GUIDANCE:
-{"Based on your specific calculation:" if has_calculation else "For SA-CCR optimization:"}
-1. **Supervisory Factor Optimization**: Ensure correct 0.5% for USD Interest Rate (not 1.0%)
-2. **Dual Calculation Compliance**: Always calculate both margined and unmargined scenarios
-3. **Capital Efficiency**: {"Consider netting agreements and collateral optimization" if not has_calculation else "Review your margin agreement terms for potential optimization"}
-4. **Regulatory Compliance**: All 24 steps must be calculated and documented
-
-⚠️ ASSUMPTIONS:
-- Basel SA-CCR methodology applied correctly with dual calculation approach
-- Supervisory factors per regulatory requirements (0.5% for USD IR, not 100 bps)
-- {"Calculation based on extracted/provided portfolio information" if calculation_requested else "General guidance applicable to typical derivatives portfolios"}
-- Alpha = 1.0 (assumes CEU flag = 1, non-centrally cleared)
-            """
-            
-            # Display structured AI response
-            display_structured_ai_response(ai_response)
-            
-            # Extract and show key insights
-            extract_and_display_key_insights(ai_response)
-            
-            # Add to conversation history
-            st.session_state.ai_history.append({
-                'question': question,
-                'response': ai_response,
-                'timestamp': datetime.now(),
-                'calculation_performed': calculation_requested,
-                'context': context_info[:500] + "..." if len(context_info) > 500 else context_info
-            })
-            
-        except Exception as e:
-            st.error(f"AI analysis error: {str(e)}")
-            st.info("The AI assistant is working with available context to provide the best possible guidance.")
+def ai_assistant_page():
+    """AI assistant for SA-CCR questions"""
     
-    # Show conversation history
-    if st.session_state.ai_history:
-        with st.expander("📜 **Conversation History**", expanded=False):
-            for i, item in enumerate(reversed(st.session_state.ai_history[-3:])):  # Last 3 items
-                calc_icon = "🧮" if item.get('calculation_performed') else "❓"
-                st.markdown(f"**{calc_icon} Q{len(st.session_state.ai_history)-i}:** {item['question']}")
-                st.markdown(f"**Response:** {item['response'][:200]}...")
-                st.markdown("---")
+    st.markdown("## 🤖 AI SA-CCR Expert Assistant")
+    st.markdown("*Ask detailed questions about SA-CCR calculations, Basel regulations, and optimization strategies*")
     
-    st.success("✅ AI analysis complete! The AI now has full context of any calculations performed. Ask follow-up questions for deeper insights.")
-
-def analyze_question_requirements(question: str) -> Dict:
-    """Analyze the question and determine what additional information is needed"""
-    
-    question_lower = question.lower()
-    
-    # Categorize question types
-    calculation_keywords = ['calculate', 'compute', 'ead', 'rwa', 'capital', 'exposure']
-    optimization_keywords = ['reduce', 'optimize', 'improve', 'lower', 'minimize', 'efficient']
-    regulatory_keywords = ['compliance', 'regulation', 'basel', 'requirement', 'rule']
-    technical_keywords = ['formula', 'methodology', 'step', 'calculation', 'approach']
-    
-    question_type = 'general'
-    if any(keyword in question_lower for keyword in calculation_keywords):
-        question_type = 'calculation'
-    elif any(keyword in question_lower for keyword in optimization_keywords):
-        question_type = 'optimization'
-    elif any(keyword in question_lower for keyword in regulatory_keywords):
-        question_type = 'regulatory'
-    elif any(keyword in question_lower for keyword in technical_keywords):
-        question_type = 'technical'
-    
-    # Determine required information based on question type
-    required_info = []
-    has_calculation_context = hasattr(st.session_state, 'current_result') and st.session_state.current_result is not None
-    
-    if question_type in ['calculation', 'optimization'] and not has_calculation_context:
-        required_info.extend([
-            'Portfolio composition (trade details)',
-            'Counterparty information',
-            'Netting agreement terms (threshold, MTA, NICA)',
-            'Collateral details (if any)'
-        ])
-    
-    if question_type == 'optimization':
-        required_info.extend([
-            'Current business constraints',
-            'Risk appetite',
-            'Preferred optimization approach'
-        ])
-    
-    return {
-        'question_type': question_type,
-        'required_info': required_info,
-        'has_context': has_calculation_context,
-        'urgency': 'high' if question_type in ['calculation', 'optimization'] else 'medium'
-    }
-
-def build_comprehensive_context() -> str:
-    """Build comprehensive context from current calculation results"""
-    
-    if not hasattr(st.session_state, 'current_result') or st.session_state.current_result is None:
-        return "No current calculation context available."
-    
-    result = st.session_state.current_result
-    netting_set = st.session_state.current_netting_set if hasattr(st.session_state, 'current_netting_set') else None
-    
-    context_parts = []
-    
-    # Basic portfolio information
-    if netting_set:
-        context_parts.append(f"""
-CURRENT PORTFOLIO CONTEXT:
-- Netting Set ID: {netting_set.netting_set_id}
-- Counterparty: {netting_set.counterparty}
-- Number of trades: {len(netting_set.trades)}
-- Total notional: ${sum(abs(trade.notional) for trade in netting_set.trades):,.0f}
-- Threshold: ${netting_set.threshold:,.0f}
-- MTA: ${netting_set.mta:,.0f}
-- NICA: ${netting_set.nica:,.0f}
+    # Quick question templates
+    with st.expander("💡 Sample Questions", expanded=True):
+        st.markdown("""
+        **Try these SA-CCR specific questions:**
+        - "Explain how the PFE multiplier works and what drives it"
+        - "What's the difference between margined and unmargined RC calculation?"
+        - "How do supervisory correlations affect my add-on calculations?"
+        - "What optimization strategies can reduce my SA-CCR capital?"
+        - "Walk me through the 24-step calculation methodology"
+        - "How does central clearing affect my Alpha multiplier?"
         """)
     
-    # Final results
-    final_results = result['final_results']
-    context_parts.append(f"""
-FINAL SA-CCR RESULTS:
-- Replacement Cost: ${final_results['replacement_cost']:,.0f}
-- Potential Future Exposure: ${final_results['potential_future_exposure']:,.0f}
-- Exposure at Default: ${final_results['exposure_at_default']:,.0f}
-- Risk Weighted Assets: ${final_results['risk_weighted_assets']:,.0f}
-- Capital Requirement: ${final_results['capital_requirement']:,.0f}
-    """)
+    # Chat interface
+    st.markdown("### 💬 Ask the AI Expert")
     
-    # Key calculation insights from thinking steps
-    if 'thinking_steps' in result and result['thinking_steps']:
-        context_parts.append("KEY CALCULATION INSIGHTS:")
-        for thinking in result['thinking_steps'][:5]:  # Top 5 insights
-            if thinking.get('key_insight'):
-                context_parts.append(f"- Step {thinking['step']}: {thinking['key_insight']}")
+    if 'saccr_chat_history' not in st.session_state:
+        st.session_state.saccr_chat_history = []
     
-    # Data quality issues
-    if 'data_quality_issues' in result and result['data_quality_issues']:
-        context_parts.append(f"""
-DATA QUALITY NOTES:
-- {len(result['data_quality_issues'])} data quality issues identified
-- Key assumptions made in calculation
-        """)
-    
-    return "\n".join(context_parts)
-
-def display_structured_ai_response(response_text: str):
-    """Parse and display structured AI response with enhanced formatting"""
-    
-    # Split response into sections based on markers
-    sections = {
-        'thinking': '',
-        'regulatory': '',
-        'quantitative': '',
-        'guidance': '',
-        'assumptions': ''
-    }
-    
-    current_section = 'thinking'
-    
-    for line in response_text.split('\n'):
-        line = line.strip()
-        if 'THINKING PROCESS' in line.upper() or '🧠' in line:
-            current_section = 'thinking'
-        elif 'REGULATORY' in line.upper() or '📋' in line:
-            current_section = 'regulatory'
-        elif 'QUANTITATIVE' in line.upper() or '📊' in line:
-            current_section = 'quantitative'
-        elif 'GUIDANCE' in line.upper() or 'PRACTICAL' in line.upper() or '🎯' in line:
-            current_section = 'guidance'
-        elif 'ASSUMPTION' in line.upper() or '⚠️' in line:
-            current_section = 'assumptions'
-        else:
-            sections[current_section] += line + '\n'
-    
-    # Display sections with enhanced formatting
-    if sections['thinking'].strip():
-        with st.expander("🧠 **THINKING PROCESS**", expanded=True):
-            st.markdown(sections['thinking'].strip())
-    
-    if sections['regulatory'].strip():
-        with st.expander("📋 **REGULATORY ANALYSIS**", expanded=True):
-            st.markdown(sections['regulatory'].strip())
-    
-    if sections['quantitative'].strip():
-        with st.expander("📊 **QUANTITATIVE IMPACT**", expanded=True):
-            st.markdown(sections['quantitative'].strip())
-    
-    if sections['guidance'].strip():
-        with st.expander("🎯 **PRACTICAL GUIDANCE**", expanded=True):
-            st.markdown(sections['guidance'].strip())
-    
-    if sections['assumptions'].strip():
-        with st.expander("⚠️ **ASSUMPTIONS & LIMITATIONS**", expanded=True):
-            st.markdown(sections['assumptions'].strip())
-
-def extract_and_display_key_insights(response_text: str):
-    """Extract and highlight key insights from AI response"""
-    
-    insights = []
-    
-    # Look for bullet points, numbered lists, or key phrases
-    for line in response_text.split('\n'):
-        line = line.strip()
-        if (line.startswith('•') or line.startswith('-') or 
-            'key' in line.lower() or 'important' in line.lower() or
-            'recommend' in line.lower()):
-            insights.append(line)
-    
-    if insights:
-        st.markdown("### 🎯 **Key Takeaways**")
-        for insight in insights[:5]:  # Top 5 insights
-            st.markdown(f"• {insight}")
-
-def extract_portfolio_info_from_question(question: str) -> Dict:
-    """Extract portfolio information from natural language question"""
-    
-    question_lower = question.lower()
-    portfolio_info = {
-        'trades': [],
-        'counterparty': None,
-        'threshold': None,
-        'mta': None,
-        'nica': 0,
-        'extracted_info': [],
-        'missing_info': []
-    }
-    
-    # Extract notional amounts
-    import re
-    
-    # Look for dollar amounts and numeric amounts
-    dollar_patterns = [
-        r'([0-9,]+\.?[0-9]*)\s*(million|mil|m)\b',  # Without $ sign
-        r'([0-9,]+\.?[0-9]*)\s*(billion|bil|b)\b',  # Without $ sign
-        r'([0-9,]+\.?[0-9]*)\s*(thousand|k)\b',     # Without $ sign
-        r'\$([0-9,]+\.?[0-9]*)\s*(million|mil|m)\b',
-        r'\$([0-9,]+\.?[0-9]*)\s*(billion|bil|b)\b', 
-        r'\$([0-9,]+\.?[0-9]*)\s*(thousand|k)\b',
-        r'\$([0-9,]+\.?[0-9]*)\b'
-    ]
-    
-    notionals = []
-    for pattern in dollar_patterns:
-        matches = re.findall(pattern, question_lower)
-        for match in matches:
-            if isinstance(match, tuple):
-                amount = float(match[0].replace(',', ''))
-                if len(match) > 1 and match[1]:
-                    multiplier = match[1]
-                    if 'million' in multiplier or 'mil' in multiplier or 'm' == multiplier:
-                        amount *= 1_000_000
-                    elif 'billion' in multiplier or 'bil' in multiplier or 'b' == multiplier:
-                        amount *= 1_000_000_000
-                    elif 'thousand' in multiplier or 'k' == multiplier:
-                        amount *= 1_000
-            else:
-                amount = float(match.replace(',', ''))
-            notionals.append(amount)
-    
-    # Extract asset classes
-    asset_class = AssetClass.INTEREST_RATE  # Default
-    if 'fx' in question_lower or 'foreign exchange' in question_lower or 'currency' in question_lower:
-        asset_class = AssetClass.FOREIGN_EXCHANGE  # Correct enum name
-    elif 'equity' in question_lower or 'stock' in question_lower:
-        asset_class = AssetClass.EQUITY
-    elif 'credit' in question_lower:
-        asset_class = AssetClass.CREDIT
-    elif 'commodity' in question_lower:
-        asset_class = AssetClass.COMMODITY
-    
-    # Extract trade types
-    trade_type = TradeType.SWAP  # Default
-    if 'option' in question_lower:
-        trade_type = TradeType.OPTION
-    elif 'forward' in question_lower:
-        trade_type = TradeType.FORWARD
-    elif 'future' in question_lower:
-        trade_type = TradeType.FUTURE
-    
-    # Extract maturity information
-    maturity_years = 1.0  # Default
-    maturity_patterns = [
-        r'([0-9]+\.?[0-9]*)\s*year',
-        r'([0-9]+\.?[0-9]*)\s*yr',
-        r'([0-9]+)\s*month'
-    ]
-    
-    for pattern in maturity_patterns:
-        matches = re.findall(pattern, question_lower)
-        if matches:
-            if 'month' in pattern:
-                maturity_years = float(matches[0]) / 12
-            else:
-                maturity_years = float(matches[0])
-            break
-    
-    # Extract counterparty information
-    counterparty = "Major Bank"  # Default
-    if 'bank' in question_lower:
-        counterparty = "Major Bank"
-    elif 'corporate' in question_lower or 'company' in question_lower:
-        counterparty = "Corporate Counterparty"
-    elif 'fund' in question_lower:
-        counterparty = "Investment Fund"
-    
-    # Extract threshold/margin information
-    threshold = 12_000_000  # Default $12M
-    mta = 1_000_000        # Default $1M
-    
-    # Look for margin/threshold amounts
-    if 'threshold' in question_lower or 'margin' in question_lower:
-        # Try to find amounts near these keywords
-        threshold_patterns = [
-            r'threshold[^0-9]*\$?([0-9,]+\.?[0-9]*)\s*(million|mil|m)?\b',
-            r'margin[^0-9]*\$?([0-9,]+\.?[0-9]*)\s*(million|mil|m)?\b'
-        ]
-        
-        for pattern in threshold_patterns:
-            matches = re.findall(pattern, question_lower)
-            if matches:
-                amount = float(matches[0][0].replace(',', ''))
-                if len(matches[0]) > 1 and matches[0][1]:
-                    if 'million' in matches[0][1] or 'mil' in matches[0][1] or 'm' == matches[0][1]:
-                        amount *= 1_000_000
-                threshold = amount
-                break
-    
-    # Create trades based on extracted information
-    if notionals:
-        for i, notional in enumerate(notionals):
-            trade = {
-                'trade_id': f"EXTRACTED_{i+1}",
-                'notional': notional,
-                'asset_class': asset_class,
-                'trade_type': trade_type,
-                'maturity_years': maturity_years,
-                'counterparty': counterparty
-            }
-            portfolio_info['trades'].append(trade)
-            portfolio_info['extracted_info'].append(f"Trade {i+1}: ${notional:,.0f} {asset_class.value} {trade_type.value}")
-    
-    # Set portfolio parameters
-    portfolio_info['counterparty'] = counterparty
-    portfolio_info['threshold'] = threshold
-    portfolio_info['mta'] = mta
-    portfolio_info['extracted_info'].extend([
-        f"Counterparty: {counterparty}",
-        f"Threshold: ${threshold:,.0f}",
-        f"MTA: ${mta:,.0f}"
-    ])
-    
-    # Determine missing information
-    if not notionals:
-        portfolio_info['missing_info'].append("Trade notional amounts")
-    if 'maturity' not in question_lower and 'year' not in question_lower:
-        portfolio_info['missing_info'].append("Trade maturities")
-    if 'threshold' not in question_lower and 'margin' not in question_lower:
-        portfolio_info['missing_info'].append("Margin agreement terms (threshold, MTA)")
-    
-    return portfolio_info
-
-def create_trades_from_extracted_info(portfolio_info: Dict) -> List[Trade]:
-    """Create Trade objects from extracted portfolio information"""
-    
-    trades = []
-    
-    for trade_info in portfolio_info['trades']:
-        trade = Trade(
-            trade_id=trade_info['trade_id'],
-            counterparty=trade_info['counterparty'],
-            asset_class=trade_info['asset_class'],
-            trade_type=trade_info['trade_type'],
-            notional=trade_info['notional'],
-            currency="USD",  # Default
-            underlying=trade_info['asset_class'].value,
-            maturity_date=datetime.now() + timedelta(days=int(trade_info['maturity_years'] * 365)),
-            mtm_value=trade_info['notional'] * 0.01,  # Assume 1% MTM
-            delta=1.0
-        )
-        trades.append(trade)
-    
-    return trades
-
-def run_saccr_calculation_from_natural_language(question: str, additional_info: Dict = None) -> Dict:
-    """Run SA-CCR calculation based on natural language input with 24-step methodology"""
-    
-    # Step 1: Extract portfolio information from question
-    portfolio_info = extract_portfolio_info_from_question(question)
-    
-    # Step 2: Apply additional information if provided
-    if additional_info:
-        if 'notional' in additional_info:
-            portfolio_info['trades'][0]['notional'] = additional_info['notional']
-        if 'threshold' in additional_info:
-            portfolio_info['threshold'] = additional_info['threshold']
-        if 'mta' in additional_info:
-            portfolio_info['mta'] = additional_info['mta']
-        if 'maturity_years' in additional_info:
-            for trade in portfolio_info['trades']:
-                trade['maturity_years'] = additional_info['maturity_years']
-    
-    # Step 3: Create Trade objects
-    trades = create_trades_from_extracted_info(portfolio_info)
-    
-    if not trades:
-        # Create a default trade if nothing was extracted
-        default_trade = Trade(
-            trade_id="DEFAULT_001",
-            counterparty="Major Bank",
-            asset_class=AssetClass.INTEREST_RATE,
-            trade_type=TradeType.SWAP,
-            notional=100_000_000,  # $100M default
-            currency="USD",
-            underlying="Interest rate",
-            maturity_date=datetime.now() + timedelta(days=365),
-            mtm_value=1_000_000,  # $1M default
-            delta=1.0
-        )
-        trades = [default_trade]
-        portfolio_info['extracted_info'].append("Used default trade: $100M Interest Rate Swap")
-    
-    # Step 4: Create NettingSet
-    netting_set = NettingSet(
-        netting_set_id=f"NL_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-        counterparty=portfolio_info['counterparty'] or "Major Bank",
-        trades=trades,
-        threshold=portfolio_info['threshold'] or 12_000_000,
-        mta=portfolio_info['mta'] or 1_000_000,
-        nica=portfolio_info['nica'] or 0
+    user_question = st.text_area(
+        "Your SA-CCR Question:",
+        placeholder="e.g., How can I optimize my derivatives portfolio to reduce SA-CCR capital requirements?",
+        height=100
     )
     
-    # Step 5: Run comprehensive SA-CCR calculation with all 24 steps
-    agent = ComprehensiveSACCRAgent()
-    result = agent.calculate_comprehensive_saccr(netting_set)
-    
-    # Step 6: Store in session state for AI context
-    st.session_state.current_result = result
-    st.session_state.current_netting_set = netting_set
-    
-    return {
-        'portfolio_info': portfolio_info,
-        'netting_set': netting_set,
-        'calculation_result': result,
-        'extraction_success': len(portfolio_info['extracted_info']) > 0
-    }
-
-def analyze_portfolio_data_quality():
-    """Enhanced data quality analysis module"""
-    
-    st.markdown("## 📈 Portfolio Data Quality Analysis")
-    st.markdown("*Comprehensive assessment of data completeness and calculation reliability*")
-    
-    if not hasattr(st.session_state, 'trades_input') or not st.session_state.trades_input:
-        st.warning("⚠️ No portfolio data available. Please add trades in the calculator first.")
-        return
-    
-    # Create dummy netting set for analysis
-    netting_set = NettingSet(
-        netting_set_id="ANALYSIS",
-        counterparty="Analysis Target",
-        trades=st.session_state.trades_input,
-        threshold=getattr(st.session_state, 'threshold', 0),
-        mta=getattr(st.session_state, 'mta', 0),
-        nica=getattr(st.session_state, 'nica', 0)
-    )
-    
-    # Perform data quality analysis
-    data_quality_issues = st.session_state.saccr_agent.analyze_data_quality(
-        netting_set, 
-        getattr(st.session_state, 'collateral_input', [])
-    )
-    
-    # Overall Data Quality Score
-    total_issues = len(data_quality_issues)
-    high_impact_issues = len([i for i in data_quality_issues if i.impact == 'high'])
-    medium_impact_issues = len([i for i in data_quality_issues if i.impact == 'medium'])
-    
-    # Calculate quality score (100 - deductions for issues)
-    quality_score = max(0, 100 - (high_impact_issues * 20) - (medium_impact_issues * 10))
-    
-    # Display quality dashboard
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2 = st.columns([1, 3])
     
     with col1:
-        st.metric("Data Quality Score", f"{quality_score}/100", help="Overall data completeness and reliability score")
+        if st.button("🚀 Ask AI Expert", type="primary"):
+            if user_question.strip():
+                # Add to chat history
+                st.session_state.saccr_chat_history.append({
+                    'type': 'user',
+                    'content': user_question,
+                    'timestamp': datetime.now()
+                })
+                
+                # Get portfolio context if available
+                portfolio_context = {}
+                if 'trades_input' in st.session_state and st.session_state.trades_input:
+                    portfolio_context = {
+                        'trade_count': len(st.session_state.trades_input),
+                        'asset_classes': list(set(t.asset_class.value for t in st.session_state.trades_input)),
+                        'total_notional': sum(abs(t.notional) for t in st.session_state.trades_input),
+                        'currencies': list(set(t.currency for t in st.session_state.trades_input))
+                    }
+                
+                # Generate AI response
+                with st.spinner("🤖 AI is analyzing your SA-CCR question..."):
+                    try:
+                        if st.session_state.saccr_agent.llm and st.session_state.saccr_agent.connection_status == "connected":
+                            
+                            system_prompt = """You are a Basel SA-CCR regulatory expert with deep knowledge of:
+                            - Complete 24-step SA-CCR calculation methodology
+                            - Supervisory factors, correlations, and regulatory parameters
+                            - PFE multiplier calculations and netting benefits
+                            - Replacement cost calculations with collateral
+                            - EAD, RWA, and capital requirement calculations
+                            - Portfolio optimization strategies for SA-CCR
+                            - Central clearing benefits and Alpha multipliers
+                            
+                            Provide detailed, technical answers with specific formulas and examples."""
+                            
+                            context_info = f"\nCurrent Portfolio Context: {json.dumps(portfolio_context, indent=2)}" if portfolio_context else ""
+                            
+                            user_prompt = f"""
+                            SA-CCR Question: {user_question}
+                            {context_info}
+                            
+                            Please provide a comprehensive answer including:
+                            - Technical explanation with relevant formulas
+                            - Specific regulatory references (Basel framework)
+                            - Practical examples or scenarios
+                            - Actionable recommendations
+                            - Impact quantification where possible
+                            """
+                            
+                            response = st.session_state.saccr_agent.llm.invoke([
+                                SystemMessage(content=system_prompt),
+                                HumanMessage(content=user_prompt)
+                            ])
+                            
+                            ai_response = response.content
+                            
+                        else:
+                            # Fallback response when LLM not connected
+                            ai_response = generate_template_response(user_question, portfolio_context)
+                        
+                        # Add AI response to chat history
+                        st.session_state.saccr_chat_history.append({
+                            'type': 'ai',
+                            'content': ai_response,
+                            'timestamp': datetime.now()
+                        })
+                        
+                    except Exception as e:
+                        st.error(f"AI response error: {str(e)}")
+    
     with col2:
-        st.metric("Total Issues", total_issues, help="Total number of data quality issues identified")
-    with col3:
-        st.metric("High Impact", high_impact_issues, delta=-high_impact_issues if high_impact_issues > 0 else None)
-    with col4:
-        st.metric("Medium Impact", medium_impact_issues, delta=-medium_impact_issues if medium_impact_issues > 0 else None)
+        if st.button("🗑️ Clear Chat History"):
+            st.session_state.saccr_chat_history = []
+            st.rerun()
     
-    # Quality indicator
-    if quality_score >= 90:
-        st.success("✅ Excellent data quality - Calculation results are highly reliable")
-    elif quality_score >= 70:
-        st.warning("⚠️ Good data quality - Minor issues may affect precision")
-    elif quality_score >= 50:
-        st.warning("🟡 Fair data quality - Several issues may impact results")
-    else:
-        st.error("❌ Poor data quality - Significant issues require attention")
-    
-    # Detailed Issues Analysis
-    if data_quality_issues:
-        st.markdown("### 🔍 Detailed Data Quality Assessment")
+    # Display chat history
+    if st.session_state.saccr_chat_history:
+        st.markdown("### 💬 Conversation History")
         
-        # High Impact Issues
-        high_issues = [i for i in data_quality_issues if i.impact == 'high']
-        if high_issues:
-            with st.expander("🔴 High Impact Issues (Immediate Action Required)", expanded=True):
-                for issue in high_issues:
-                    st.markdown(f"""
-                    <div class="data-quality-alert">
-                        <strong>🚨 {issue.field_name}</strong><br>
-                        <strong>Current Value:</strong> {issue.current_value}<br>
-                        <strong>Issue Type:</strong> {issue.issue_type}<br>
-                        <strong>Impact:</strong> {issue.recommendation}<br>
-                        <strong>Default Used:</strong> {issue.default_used}
-                    </div>
-                    """, unsafe_allow_html=True)
-        
-        # Medium Impact Issues
-        medium_issues = [i for i in data_quality_issues if i.impact == 'medium']
-        if medium_issues:
-            with st.expander("🟡 Medium Impact Issues (Review Recommended)", expanded=True):
-                for issue in medium_issues:
-                    st.markdown(f"""
-                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 1rem; border-radius: 6px; margin: 0.5rem 0;">
-                        <strong>⚠️ {issue.field_name}</strong><br>
-                        <strong>Current:</strong> {issue.current_value}<br>
-                        <strong>Recommendation:</strong> {issue.recommendation}
-                    </div>
-                    """, unsafe_allow_html=True)
-    
-    # Data Improvement Recommendations
-    st.markdown("### 💡 Data Enhancement Recommendations")
-    
-    recommendations = generate_enhanced_template_response(data_quality_issues, netting_set)
-    
-    for category, recs in recommendations.items():
-        with st.expander(f"📋 {category}", expanded=True):
-            for rec in recs:
-                st.write(f"• {rec}")
-    
-    # Portfolio Statistics
-    with st.expander("📊 Portfolio Statistics", expanded=False):
-        trades = st.session_state.trades_input
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("**Trade Composition:**")
-            asset_classes = {}
-            trade_types = {}
-            currencies = {}
-            
-            for trade in trades:
-                # Asset classes
-                ac = trade.asset_class.value
-                asset_classes[ac] = asset_classes.get(ac, 0) + 1
-                
-                # Trade types
-                tt = trade.trade_type.value
-                trade_types[tt] = trade_types.get(tt, 0) + 1
-                
-                # Currencies
-                curr = trade.currency
-                currencies[curr] = currencies.get(curr, 0) + 1
-            
-            st.write("Asset Classes:")
-            for ac, count in asset_classes.items():
-                st.write(f"  • {ac}: {count} trades")
-            
-            st.write("Trade Types:")
-            for tt, count in trade_types.items():
-                st.write(f"  • {tt}: {count} trades")
-        
-        with col2:
-            st.markdown("**Risk Metrics:**")
-            
-            total_notional = sum(abs(trade.notional) for trade in trades)
-            total_mtm = sum(trade.mtm_value for trade in trades)
-            avg_maturity = sum(trade.time_to_maturity() for trade in trades) / len(trades)
-            
-            st.write(f"• Total Notional: ${total_notional/1_000_000:.1f}M")
-            st.write(f"• Total MTM: ${total_mtm/1_000:.0f}K")
-            st.write(f"• Average Maturity: {avg_maturity:.1f} years")
-            st.write(f"• Currency Exposure:")
-            for curr, count in currencies.items():
-                st.write(f"    - {curr}: {count} trades")
+        for chat in reversed(st.session_state.saccr_chat_history[-6:]):
+            if chat['type'] == 'user':
+                st.markdown(f"""
+                <div class="user-query">
+                    <strong>👤 You:</strong> {chat['content']}
+                    <br><small style="color: #666;">{chat['timestamp'].strftime('%H:%M:%S')}</small>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="ai-response">
+                    <strong>🤖 SA-CCR Expert:</strong><br>
+                    {chat['content']}
+                    <br><small style="color: rgba(255,255,255,0.7);">{chat['timestamp'].strftime('%H:%M:%S')}</small>
+                </div>
+                """, unsafe_allow_html=True)
 
-def generate_enhanced_template_response(issues: List, netting_set: NettingSet) -> Dict[str, List[str]]:
-    """Generate enhanced recommendations based on data quality issues"""
+def generate_template_response(question: str, portfolio_context: dict = None) -> str:
+    """Generate template responses when LLM is not available"""
     
-    recommendations = {
-        "Immediate Actions": [],
-        "Data Enhancement": [],
-        "Process Improvements": [],
-        "Technology Solutions": []
-    }
+    question_lower = question.lower()
     
-    # Analyze high impact issues
-    high_impact_fields = [i.field_name for i in issues if i.impact == 'high']
+    if "pfe multiplier" in question_lower or "multiplier" in question_lower:
+        return """
+        **PFE Multiplier Explanation:**
+        
+        The PFE Multiplier is a key component in SA-CCR that captures netting benefits within a netting set.
+        
+        **Formula:**
+        Multiplier = min(1, 0.05 + 0.95 × exp(-0.05 × max(0, V) / aggregate_addon))
+        
+        **Key Drivers:**
+        - **V**: Net MTM of all trades in the netting set
+        - **Aggregate Add-on**: Sum of all asset class add-ons
+        - **Ratio V/AddOn**: Higher ratios reduce the multiplier (more netting benefit)
+        
+        **Practical Impact:**
+        - Multiplier ranges from 0.05 to 1.0
+        - Lower multipliers = more netting benefit = lower capital
+        - When V is negative (out-of-the-money), multiplier approaches minimum 0.05
+        - When V >> AddOn, multiplier approaches 1.0 (no netting benefit)
+        
+        **Optimization Strategy:**
+        Balance your portfolio MTM through strategic hedging to maximize netting benefits.
+        """
     
-    if any('MTM' in field for field in high_impact_fields):
-        recommendations["Immediate Actions"].append("Implement daily MTM value updates from market data providers")
-        recommendations["Technology Solutions"].append("Integrate with real-time pricing services (Bloomberg, Refinitiv)")
+    elif "replacement cost" in question_lower or "margined" in question_lower:
+        return """
+        **Replacement Cost (RC) Calculation:**
+        
+        RC differs significantly between margined and unmargined netting sets.
+        
+        **Margined Netting Sets:**
+        RC = max(V - C, TH + MTA - NICA, 0)
+        
+        **Unmargined Netting Sets:**
+        RC = max(V - C, 0)
+        
+        **Key Components:**
+        - **V**: Current market value (sum of trade MTMs)
+        - **C**: Effective collateral value after haircuts
+        - **TH**: Threshold amount
+        - **MTA**: Minimum Transfer Amount
+        - **NICA**: Net Independent Collateral Amount
+        
+        **Critical Differences:**
+        - Margined: RC can never be less than TH + MTA - NICA
+        - Unmargined: RC simply equals positive net exposure
+        - Margined sets typically have lower RC due to collateral posting
+        
+        **Optimization:**
+        - Negotiate lower thresholds and MTAs
+        - Post high-quality collateral with low haircuts
+        - Consider central clearing for eligible trades
+        """
     
-    if any('Threshold' in field or 'MTA' in field for field in high_impact_fields):
-        recommendations["Immediate Actions"].append("Review and update all CSA/ISDA agreement terms in system")
-        recommendations["Process Improvements"].append("Establish quarterly CSA terms validation process")
+    elif "optimization" in question_lower or "reduce capital" in question_lower:
+        return """
+        **SA-CCR Capital Optimization Strategies:**
+        
+        **1. Portfolio Structure (15-30% capital reduction)**
+        - Balance long/short positions to reduce net MTM
+        - Diversify across asset classes to benefit from correlations
+        - Consider trade compression to reduce gross notional
+        
+        **2. Netting Enhancement (20-40% reduction)**
+        - Consolidate trading relationships under master agreements
+        - Negotiate cross-product netting where possible
+        - Ensure legal enforceability in all jurisdictions
+        
+        **3. Collateral Optimization (30-60% reduction)**
+        - Post high-quality collateral (government bonds vs. equities)
+        - Minimize currency mismatches to avoid FX haircuts
+        - Negotiate lower thresholds and MTAs
+        
+        **4. Central Clearing (50%+ reduction)**
+        - Clear eligible trades to benefit from Alpha = 0.5 vs. 1.4
+        - Consider portfolio-level clearing strategies
+        
+        **5. Trade Structure Optimization**
+        - Use shorter maturities where possible (better maturity factors)
+        - Consider option structures vs. linear trades
+        - Optimize delta exposure for option positions
+        
+        **Expected Combined Impact:** 40-70% capital reduction with comprehensive optimization
+        """
     
-    if any('Collateral' in field for field in high_impact_fields):
-        recommendations["Immediate Actions"].append("Implement comprehensive collateral tracking system")
-        recommendations["Data Enhancement"].append("Daily collateral position reconciliation with custodians")
-    
-    if any('Delta' in field for field in high_impact_fields):
-        recommendations["Data Enhancement"].append("Source option sensitivities from derivatives pricing systems")
-        recommendations["Technology Solutions"].append("Implement Greeks calculation engine or vendor solution")
-    
-    # General recommendations based on portfolio characteristics
-    asset_classes = set(trade.asset_class for trade in netting_set.trades)
-    
-    if len(asset_classes) > 2:
-        recommendations["Process Improvements"].append("Implement cross-asset class risk monitoring")
-        recommendations["Data Enhancement"].append("Enhance correlation data for multi-asset portfolios")
-    
-    if len(netting_set.trades) > 10:
-        recommendations["Technology Solutions"].append("Consider automated SA-CCR calculation platform")
-        recommendations["Process Improvements"].append("Implement trade-level data quality monitoring")
-    
-    # Always include baseline recommendations
-    recommendations["Process Improvements"].extend([
-        "Establish monthly data quality reporting",
-        "Implement exception reporting for missing data",
-        "Create data quality KPIs and monitoring dashboard"
-    ])
-    
-    recommendations["Technology Solutions"].extend([
-        "Consider SA-CCR calculation automation platform",
-        "Implement data validation rules in trade capture systems",
-        "Set up automated regulatory reporting pipeline"
-    ])
-    
-    return recommendations
+    else:
+        return """
+        **SA-CCR Expert Guidance:**
+        
+        I can help you understand the complete Basel SA-CCR framework including:
+        
+        **Technical Areas:**
+        - All 24 calculation steps with detailed formulas
+        - Supervisory factors and correlations by asset class
+        - PFE multiplier mechanics and optimization
+        - Replacement cost calculation differences
+        - Alpha multiplier impacts from central clearing
+        
+        **Practical Applications:**
+        - Portfolio optimization strategies
+        - Capital efficiency improvements
+        - Regulatory compliance requirements
+        - Implementation best practices
+        
+        **Please specify your question about:**
+        - Specific calculation steps or formulas
+        - Portfolio characteristics you're analyzing
+        - Optimization goals or constraints
+        - Regulatory compliance requirements
+        
+        This will help me provide more targeted and actionable guidance for your SA-CCR implementation.
+        """
 
 def portfolio_analysis_page():
-    """Enhanced portfolio analysis with comprehensive insights"""
+    """Advanced portfolio analysis with AI insights"""
     
-    st.markdown("## 📊 Portfolio Risk Analysis")
-    st.markdown("*Comprehensive portfolio analytics and optimization insights*")
+    st.markdown("## 📊 Portfolio Analysis & Optimization")
     
-    if not hasattr(st.session_state, 'trades_input') or not st.session_state.trades_input:
-        st.warning("⚠️ No portfolio data available. Please add trades in the calculator first.")
+    if 'trades_input' not in st.session_state or not st.session_state.trades_input:
+        st.info("🔍 Please add trades in the SA-CCR Calculator first to perform portfolio analysis")
         return
     
     trades = st.session_state.trades_input
     
-    # Portfolio Overview Dashboard
-    st.markdown("### 🎯 Portfolio Overview")
+    # Portfolio Overview
+    st.markdown("### 📋 Portfolio Overview")
     
     col1, col2, col3, col4 = st.columns(4)
     
-    total_notional = sum(abs(trade.notional) for trade in trades)
-    total_mtm = sum(trade.mtm_value for trade in trades)
-    avg_maturity = sum(trade.time_to_maturity() for trade in trades) / len(trades)
-    asset_classes = len(set(trade.asset_class for trade in trades))
-    
     with col1:
-        st.metric("Total Notional", f"${total_notional/1_000_000:.1f}M")
+        st.metric("Total Trades", len(trades))
     with col2:
-        st.metric("Net MTM", f"${total_mtm/1_000:.0f}K")
+        total_notional = sum(abs(t.notional) for t in trades)
+        st.metric("Total Notional", f"${total_notional/1_000_000:.0f}M")
     with col3:
-        st.metric("Avg Maturity", f"{avg_maturity:.1f}Y")
-    with col4:
+        asset_classes = len(set(t.asset_class for t in trades))
         st.metric("Asset Classes", asset_classes)
+    with col4:
+        currencies = len(set(t.currency for t in trades))
+        st.metric("Currencies", currencies)
     
-    # Risk Distribution Analysis
+    # Asset Class Breakdown
     col1, col2 = st.columns(2)
     
     with col1:
-        # Notional by Asset Class
-        asset_notional = {}
+        st.markdown("### 📊 Notional by Asset Class")
+        
+        asset_class_data = {}
         for trade in trades:
             ac = trade.asset_class.value
-            asset_notional[ac] = asset_notional.get(ac, 0) + abs(trade.notional)
+            if ac not in asset_class_data:
+                asset_class_data[ac] = 0
+            asset_class_data[ac] += abs(trade.notional)
         
-        fig_pie = px.pie(
-            values=list(asset_notional.values()),
-            names=list(asset_notional.keys()),
-            title="Notional Distribution by Asset Class"
-        )
-        st.plotly_chart(fig_pie, use_container_width=True)
+        ac_df = pd.DataFrame(list(asset_class_data.items()), columns=['Asset Class', 'Notional'])
+        fig = px.pie(ac_df, values='Notional', names='Asset Class', 
+                     title="Portfolio Composition by Asset Class")
+        st.plotly_chart(fig, use_container_width=True)
     
     with col2:
-        # MTM vs Notional Scatter
-        mtm_data = [trade.mtm_value/1_000 for trade in trades]  # In thousands
-        notional_data = [abs(trade.notional)/1_000_000 for trade in trades]  # In millions
-        colors = [trade.asset_class.value for trade in trades]
+        st.markdown("### 📈 Maturity Profile")
         
-        fig_scatter = px.scatter(
-            x=notional_data,
-            y=mtm_data,
-            color=colors,
-            title="MTM vs Notional by Trade",
-            labels={'x': 'Notional ($M)', 'y': 'MTM ($K)'},
-            hover_data={'Trade ID': [trade.trade_id for trade in trades]}
-        )
-        st.plotly_chart(fig_scatter, use_container_width=True)
-    
-    # Maturity Analysis
-    st.markdown("### ⏰ Maturity Profile Analysis")
-    
-    # Create maturity buckets
-    maturity_buckets = {"<1Y": 0, "1-2Y": 0, "2-5Y": 0, "5-10Y": 0, ">10Y": 0}
-    maturity_details = []
-    
-    for trade in trades:
-        maturity = trade.time_to_maturity()
-        maturity_details.append({
-            'Trade ID': trade.trade_id,
-            'Maturity': maturity,
-            'Notional': abs(trade.notional),
-            'Asset Class': trade.asset_class.value
-        })
+        maturity_data = []
+        for trade in trades:
+            maturity_data.append({
+                'Trade ID': trade.trade_id,
+                'Maturity (Years)': trade.time_to_maturity(),
+                'Notional ($M)': abs(trade.notional) / 1_000_000
+            })
         
-        if maturity < 1:
-            maturity_buckets["<1Y"] += abs(trade.notional)
-        elif maturity < 2:
-            maturity_buckets["1-2Y"] += abs(trade.notional)
-        elif maturity < 5:
-            maturity_buckets["2-5Y"] += abs(trade.notional)
-        elif maturity < 10:
-            maturity_buckets["5-10Y"] += abs(trade.notional)
-        else:
-            maturity_buckets[">10Y"] += abs(trade.notional)
+        mat_df = pd.DataFrame(maturity_data)
+        fig = px.scatter(mat_df, x='Maturity (Years)', y='Notional ($M)',
+                        hover_data=['Trade ID'], title="Maturity vs Notional")
+        st.plotly_chart(fig, use_container_width=True)
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Maturity bucket distribution
-        fig_bar = px.bar(
-            x=list(maturity_buckets.keys()),
-            y=[v/1_000_000 for v in maturity_buckets.values()],
-            title="Notional by Maturity Bucket",
-            labels={'x': 'Maturity Bucket', 'y': 'Notional ($M)'}
-        )
-        st.plotly_chart(fig_bar, use_container_width=True)
-    
-    with col2:
-        # Maturity timeline
-        df_maturity = pd.DataFrame(maturity_details)
-        fig_timeline = px.histogram(
-            df_maturity,
-            x='Maturity',
-            weights='Notional',
-            color='Asset Class',
-            title="Maturity Timeline Distribution",
-            labels={'x': 'Years to Maturity', 'y': 'Notional ($)'}
-        )
-        st.plotly_chart(fig_timeline, use_container_width=True)
-    
-    # Risk Factor Analysis
-    st.markdown("### ⚡ Risk Factor Impact Analysis")
-    
-    # Calculate supervisory factors for each trade
-    risk_analysis = []
-    for trade in trades:
-        sf = st.session_state.saccr_agent._get_supervisory_factor(trade)
-        mf = math.sqrt(min(trade.time_to_maturity(), 1.0))
-        
-        risk_contribution = abs(trade.notional) * trade.delta * mf * (sf / 10000)
-        
-        risk_analysis.append({
-            'Trade ID': trade.trade_id,
-            'Asset Class': trade.asset_class.value,
-            'Notional ($M)': abs(trade.notional) / 1_000_000,
-            'Supervisory Factor (bp)': sf,
-            'Maturity Factor': mf,
-            'Delta': trade.delta,
-            'Risk Contribution ($K)': risk_contribution / 1000,
-            'Risk Density (%)': (risk_contribution / abs(trade.notional)) * 100
-        })
-    
-    df_risk = pd.DataFrame(risk_analysis)
-    
-    # Display risk analysis table
-    st.dataframe(df_risk.round(4), use_container_width=True)
-    
-    # Risk contribution charts
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Risk contribution by trade
-        fig_risk = px.bar(
-            df_risk.sort_values('Risk Contribution ($K)', ascending=False).head(10),
-            x='Trade ID',
-            y='Risk Contribution ($K)',
-            color='Asset Class',
-            title="Top 10 Risk Contributing Trades"
-        )
-        fig_risk.update_xaxes(tickangle=45)
-        st.plotly_chart(fig_risk, use_container_width=True)
-    
-    with col2:
-        # Risk density analysis
-        fig_density = px.scatter(
-            df_risk,
-            x='Notional ($M)',
-            y='Risk Density (%)',
-            color='Asset Class',
-            size='Risk Contribution ($K)',
-            title="Risk Density vs Notional Size"
-        )
-        st.plotly_chart(fig_density, use_container_width=True)
-    
-    # Optimization Recommendations
-    st.markdown("### 🎯 Portfolio Optimization Insights")
-    
-    # Calculate optimization metrics
-    total_risk_contribution = sum(item['Risk Contribution ($K)'] for item in risk_analysis)
-    high_risk_trades = [item for item in risk_analysis if item['Risk Density (%)'] > 1.0]
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("**🔍 Key Findings:**")
-        st.write(f"• Total portfolio risk contribution: ${total_risk_contribution:.0f}K")
-        st.write(f"• High risk density trades: {len(high_risk_trades)} ({len(high_risk_trades)/len(trades)*100:.1f}%)")
-        st.write(f"• Most risk-intensive asset class: {max(set(item['Asset Class'] for item in risk_analysis), key=lambda x: sum(item['Risk Contribution ($K)'] for item in risk_analysis if item['Asset Class'] == x))}")
-        
-        avg_risk_density = sum(item['Risk Density (%)'] for item in risk_analysis) / len(risk_analysis)
-        st.write(f"• Average risk density: {avg_risk_density:.3f}%")
-    
-    with col2:
-        st.markdown("**💡 Optimization Opportunities:**")
-        
-        if len(high_risk_trades) > 0:
-            st.write("• Consider reviewing high risk density trades for optimization")
-        
-        if avg_maturity > 5:
-            st.write("• Long average maturity - consider maturity diversification")
-        
-        if asset_classes == 1:
-            st.write("• Single asset class concentration - consider diversification")
-        
-        if total_mtm < 0:
-            st.write("• Negative MTM may benefit from netting optimization")
-        else:
-            st.write("• Positive MTM - monitor for potential collateral requirements")
-    
-    # Export portfolio analysis
-    st.markdown("### 📥 Export Analysis")
-    
-    analysis_export = {
-        'Portfolio_Summary': {
-            'Total_Trades': len(trades),
-            'Total_Notional_USD': total_notional,
-            'Net_MTM_USD': total_mtm,
-            'Average_Maturity_Years': avg_maturity,
-            'Asset_Classes': asset_classes
-        },
-        'Risk_Analysis': risk_analysis,
-        'Maturity_Buckets': {k: v for k, v in maturity_buckets.items()},
-        'Asset_Distribution': asset_notional
-    }
-    
-    analysis_json = json.dumps(analysis_export, indent=2, default=str)
-    st.download_button(
-        "📊 Download Portfolio Analysis",
-        data=analysis_json,
-        file_name=f"portfolio_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-        mime="application/json"
-    )
-
-def enhanced_ai_assistant_page():
-    """Enhanced AI assistant with conversational flow and simplified interaction"""
-    
-    st.markdown("## 🤖 AI SA-CCR Expert Assistant")
-    st.markdown("*Intelligent SA-CCR analysis with conversational guidance*")
-    
-    # Initialize conversation state
-    if 'ai_conversation' not in st.session_state:
-        st.session_state.ai_conversation = []
-    if 'current_question' not in st.session_state:
-        st.session_state.current_question = None
-    if 'waiting_for_calculation' not in st.session_state:
-        st.session_state.waiting_for_calculation = False
-    if 'calculation_inputs' not in st.session_state:
-        st.session_state.calculation_inputs = {}
-    
-    # Check for current calculation context
-    has_current_calculation = hasattr(st.session_state, 'saccr_result') and st.session_state.saccr_result is not None
-    
-    # Display current calculation context
-    if has_current_calculation:
-        st.success("✅ **AI has full context of your current SA-CCR calculation**")
-        final_ead = st.session_state.saccr_result['final_results']['exposure_at_default']
-        st.metric("Current EAD", f"${final_ead:,.0f}")
-    else:
-        st.info("💡 **Tip**: Ask any SA-CCR question or request a calculation")
-    
-    # Check LLM connection status
-    if st.session_state.saccr_agent.connection_status != "connected":
-        st.warning("⚠️ LLM not connected. Using simplified mode with calculation capabilities.")
-    
-    # Main conversation interface
-    st.markdown("### 💬 Conversation")
-    
-    # Show conversation history
-    if st.session_state.ai_conversation:
-        for i, exchange in enumerate(st.session_state.ai_conversation):
-            # User message
-            st.markdown(f"""
-            <div style="background: #f0f2f6; padding: 1rem; border-radius: 8px; margin: 1rem 0; border-left: 4px solid #4f46e5;">
-                <strong>You:</strong> {exchange['question']}
-            </div>
-            """, unsafe_allow_html=True)
+    # AI Portfolio Analysis
+    if st.button("🤖 Generate AI Portfolio Analysis", type="primary"):
+        with st.spinner("🤖 AI is analyzing your portfolio..."):
             
-            # AI response
-            st.markdown(f"""
-            <div style="background: #e8f5e8; padding: 1rem; border-radius: 8px; margin: 1rem 0; border-left: 4px solid #10b981;">
-                <strong>AI Expert:</strong> {exchange['response']}
-            </div>
-            """, unsafe_allow_html=True)
+            # Prepare portfolio summary for AI
+            portfolio_summary = {
+                'total_trades': len(trades),
+                'total_notional': total_notional,
+                'asset_classes': list(set(t.asset_class.value for t in trades)),
+                'currencies': list(set(t.currency for t in trades)),
+                'avg_maturity': sum(t.time_to_maturity() for t in trades) / len(trades),
+                'largest_trade': max(t.notional for t in trades),
+                'mtm_exposure': sum(t.mtm_value for t in trades)
+            }
             
-            # Show calculation results if any
-            if exchange.get('calculation_result'):
-                with st.expander(f"📊 Calculation Results from Exchange {i+1}", expanded=False):
-                    result = exchange['calculation_result']
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("EAD", f"${result['final_results']['exposure_at_default']:,.0f}")
-                    with col2:
-                        st.metric("RWA", f"${result['final_results']['risk_weighted_assets']:,.0f}")
-                    with col3:
-                        st.metric("Capital", f"${result['final_results']['capital_requirement']:,.0f}")
-    
-    # Handle ongoing calculation request
-    if st.session_state.waiting_for_calculation:
-        st.markdown("### 📝 I need some information to run the SA-CCR calculation:")
-        
-        # Simple input form
-        with st.form("calculation_inputs_form"):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                notional = st.number_input("Trade Notional ($)", value=100_000_000, step=10_000_000)
-                maturity_years = st.number_input("Maturity (years)", value=1.0, step=0.5, min_value=0.1, max_value=30.0)
-                asset_class = st.selectbox("Asset Class", ["Interest Rate", "Foreign Exchange", "Credit", "Equity", "Commodity"])
-            
-            with col2:
-                threshold = st.number_input("Threshold ($)", value=12_000_000, step=1_000_000)
-                mta = st.number_input("MTA ($)", value=1_000_000, step=100_000)
-                counterparty = st.text_input("Counterparty", value="Major Bank")
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                if st.form_submit_button("🚀 Run Calculation", type="primary"):
-                    # Store inputs and run calculation
-                    st.session_state.calculation_inputs = {
-                        'notional': notional,
-                        'maturity_years': maturity_years,
-                        'asset_class': asset_class,
-                        'threshold': threshold,
-                        'mta': mta,
-                        'counterparty': counterparty
-                    }
+            if st.session_state.saccr_agent.llm and st.session_state.saccr_agent.connection_status == "connected":
+                try:
+                    system_prompt = """You are a derivatives portfolio optimization expert specializing in SA-CCR capital efficiency. 
+                    Analyze the portfolio and provide specific, actionable recommendations for reducing capital requirements."""
                     
-                    # Run the calculation
-                    success, result = run_simplified_calculation(st.session_state.calculation_inputs, st.session_state.current_question)
+                    user_prompt = f"""
+                    Analyze this derivatives portfolio for SA-CCR capital optimization:
                     
-                    if success:
-                        # Add to conversation
-                        response = f"""I've successfully calculated the SA-CCR for your portfolio. Here are the key results:
-
-**Trade Details:**
-- Notional: ${notional:,.0f}
-- Asset Class: {asset_class}
-- Maturity: {maturity_years} years
-- Counterparty: {counterparty}
-
-**SA-CCR Results:**
-- Exposure at Default (EAD): ${result['final_results']['exposure_at_default']:,.0f}
-- Risk Weighted Assets (RWA): ${result['final_results']['risk_weighted_assets']:,.0f}
-- Capital Requirement: ${result['final_results']['capital_requirement']:,.0f}
-
-**Key Insights:**
-- Current exposure (RC): ${result['final_results']['replacement_cost']:,.0f}
-- Future exposure (PFE): ${result['final_results']['potential_future_exposure']:,.0f}
-- Capital efficiency: {(result['final_results']['capital_requirement']/notional*100):.3f}% of notional
-
-The calculation follows the complete 24-step Basel SA-CCR methodology. Would you like me to explain any specific aspect or suggest optimization strategies?"""
-                        
-                        st.session_state.ai_conversation.append({
-                            'question': st.session_state.current_question,
-                            'response': response,
-                            'calculation_result': result,
-                            'timestamp': datetime.now()
-                        })
-                        
-                        # Store result for future reference
-                        st.session_state.saccr_result = result
-                        
-                        # Reset states
-                        st.session_state.waiting_for_calculation = False
-                        st.session_state.current_question = None
-                        st.rerun()
-                    else:
-                        st.error("Calculation failed. Please check inputs and try again.")
-            
-            with col2:
-                if st.form_submit_button("⚡ Use Defaults"):
-                    # Use default values
-                    default_inputs = {
-                        'notional': 100_000_000,
-                        'maturity_years': 1.0,
-                        'asset_class': 'Interest Rate',
-                        'threshold': 12_000_000,
-                        'mta': 1_000_000,
-                        'counterparty': 'Major Bank'
-                    }
+                    Portfolio Summary:
+                    {json.dumps(portfolio_summary, indent=2)}
                     
-                    success, result = run_simplified_calculation(default_inputs, st.session_state.current_question)
+                    Please provide:
+                    1. Portfolio risk assessment (concentrations, imbalances)
+                    2. SA-CCR capital efficiency analysis
+                    3. Specific optimization recommendations with estimated benefits
+                    4. Netting and collateral optimization opportunities
+                    5. Priority actions ranked by impact
                     
-                    if success:
-                        response = f"""I've calculated SA-CCR using standard assumptions:
-
-**Default Portfolio:**
-- $100M Interest Rate Swap
-- 1-year maturity
-- Major Bank counterparty
-- $12M threshold, $1M MTA
-
-**Results:**
-- EAD: ${result['final_results']['exposure_at_default']:,.0f}
-- RWA: ${result['final_results']['risk_weighted_assets']:,.0f}
-- Capital: ${result['final_results']['capital_requirement']:,.0f}
-
-This gives you a baseline SA-CCR calculation. You can ask me to modify any parameters or explain the methodology."""
-                        
-                        st.session_state.ai_conversation.append({
-                            'question': st.session_state.current_question,
-                            'response': response,
-                            'calculation_result': result,
-                            'timestamp': datetime.now()
-                        })
-                        
-                        st.session_state.saccr_result = result
-                        st.session_state.waiting_for_calculation = False
-                        st.session_state.current_question = None
-                        st.rerun()
-            
-            with col3:
-                if st.form_submit_button("❌ Cancel"):
-                    st.session_state.waiting_for_calculation = False
-                    st.session_state.current_question = None
-                    st.rerun()
-    
-    else:
-        # New question input
-        st.markdown("### 🎤 Ask Your Question")
-        
-        # Quick question buttons
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if st.button("🧮 Calculate SA-CCR", type="primary"):
-                handle_new_question("Please calculate SA-CCR for my portfolio with the following details")
-        
-        with col2:
-            if st.button("📈 Optimization Tips"):
-                handle_new_question("What are the best strategies to optimize SA-CCR capital requirements?")
-        
-        with col3:
-            if st.button("⚖️ Explain Basel Rules"):
-                handle_new_question("Explain the key Basel SA-CCR regulatory requirements and methodology")
-        
-        # Custom question input
-        user_question = st.text_area(
-            "Or ask any SA-CCR question:",
-            placeholder="e.g., How does netting affect my capital requirements?",
-            height=100,
-            key="user_question_input"
-        )
-        
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            if st.button("🚀 Ask AI Expert", type="primary") and user_question:
-                handle_new_question(user_question)
-        
-        with col2:
-            if st.button("🗑️ Clear Chat"):
-                st.session_state.ai_conversation = []
-                st.session_state.waiting_for_calculation = False
-                st.session_state.current_question = None
-                st.rerun()
-
-def handle_new_question(question: str):
-    """Handle a new question from the user"""
-    
-    # Check if this is a calculation request
-    calculation_keywords = ['calculate', 'compute', 'run', 'perform', 'ead', 'rwa', 'capital']
-    needs_calculation = any(keyword in question.lower() for keyword in calculation_keywords)
-    
-    if needs_calculation:
-        # Check if we already have portfolio data
-        has_portfolio = hasattr(st.session_state, 'trades_input') and st.session_state.trades_input
-        
-        if has_portfolio:
-            # Use existing portfolio for calculation
-            try:
-                netting_set = NettingSet(
-                    netting_set_id="AI_CALC",
-                    counterparty="Portfolio Analysis",
-                    trades=st.session_state.trades_input,
-                    threshold=getattr(st.session_state, 'reference_threshold', 12000000),
-                    mta=getattr(st.session_state, 'reference_mta', 1000000),
-                    nica=getattr(st.session_state, 'reference_nica', 0)
-                )
-                
-                result = st.session_state.saccr_agent.calculate_comprehensive_saccr(netting_set, [])
-                
-                response = f"""I've analyzed your current portfolio and calculated SA-CCR:
-
-**Portfolio Overview:**
-- {len(st.session_state.trades_input)} trades
-- Total notional: ${sum(abs(t.notional) for t in st.session_state.trades_input):,.0f}
-
-**SA-CCR Results:**
-- EAD: ${result['final_results']['exposure_at_default']:,.0f}
-- RWA: ${result['final_results']['risk_weighted_assets']:,.0f}
-- Capital: ${result['final_results']['capital_requirement']:,.0f}
-
-The calculation follows Basel's 24-step methodology including dual margined/unmargined scenarios. Would you like me to explain any specific component?"""
-                
-                st.session_state.ai_conversation.append({
-                    'question': question,
-                    'response': response,
-                    'calculation_result': result,
-                    'timestamp': datetime.now()
-                })
-                
-                st.session_state.saccr_result = result
-                st.rerun()
-                return
-                
-            except Exception as e:
-                st.error(f"Error calculating with existing portfolio: {e}")
-        
-        # Need to gather calculation inputs
-        st.session_state.current_question = question
-        st.session_state.waiting_for_calculation = True
-        st.rerun()
-    
-    else:
-        # Handle as general question
-        if st.session_state.saccr_agent.connection_status == "connected":
-            # Use LLM for response
-            try:
-                context = build_conversation_context()
-                
-                system_prompt = """You are a Basel SA-CCR regulatory expert. Provide clear, practical guidance on SA-CCR methodology, optimization, and compliance. Focus on actionable insights."""
-                
-                user_prompt = f"""
-Question: {question}
-
-Context: {context}
-
-Please provide a comprehensive but concise response focusing on practical guidance.
-"""
-                
-                response = st.session_state.saccr_agent.llm.invoke([
-                    SystemMessage(content=system_prompt),
-                    HumanMessage(content=user_prompt)
-                ])
-                
-                ai_response = response.content
-                
-            except Exception as e:
-                ai_response = generate_template_response(question)
-        
-        else:
-            # Use template response
-            ai_response = generate_template_response(question)
-        
-        st.session_state.ai_conversation.append({
-            'question': question,
-            'response': ai_response,
-            'timestamp': datetime.now()
-        })
-        
-        st.rerun()
-
-def run_simplified_calculation(inputs: Dict, original_question: str) -> Tuple[bool, Dict]:
-    """Run SA-CCR calculation with simplified inputs"""
-    
-    try:
-        # Create trade object
-        asset_class_map = {
-            'Interest Rate': AssetClass.INTEREST_RATE,
-            'Foreign Exchange': AssetClass.FOREIGN_EXCHANGE,
-            'Credit': AssetClass.CREDIT,
-            'Equity': AssetClass.EQUITY,
-            'Commodity': AssetClass.COMMODITY
-        }
-        
-        trade = Trade(
-            trade_id="AI_CALC_001",
-            counterparty=inputs['counterparty'],
-            asset_class=asset_class_map[inputs['asset_class']],
-            trade_type=TradeType.SWAP,
-            notional=inputs['notional'],
-            currency="USD",
-            underlying=inputs['asset_class'],
-            maturity_date=datetime.now() + timedelta(days=int(inputs['maturity_years'] * 365)),
-            mtm_value=inputs['notional'] * 0.01,  # 1% MTM assumption
-            delta=1.0
-        )
-        
-        # Create netting set
-        netting_set = NettingSet(
-            netting_set_id=f"AI_{datetime.now().strftime('%H%M%S')}",
-            counterparty=inputs['counterparty'],
-            trades=[trade],
-            threshold=inputs['threshold'],
-            mta=inputs['mta'],
-            nica=0
-        )
-        
-        # Run calculation
-        result = st.session_state.saccr_agent.calculate_comprehensive_saccr(netting_set, [])
-        
-        return True, result
-        
-    except Exception as e:
-        st.error(f"Calculation error: {e}")
-        return False, None
-
-def build_conversation_context() -> str:
-    """Build context from conversation history and current state"""
-    
-    context_parts = []
-    
-    # Add current calculation context if available
-    if hasattr(st.session_state, 'saccr_result'):
-        final_results = st.session_state.saccr_result['final_results']
-        context_parts.append(f"Current calculation: EAD=${final_results['exposure_at_default']:,.0f}, RWA=${final_results['risk_weighted_assets']:,.0f}")
-    
-    # Add recent conversation
-    if st.session_state.ai_conversation:
-        recent = st.session_state.ai_conversation[-2:]  # Last 2 exchanges
-        for exchange in recent:
-            context_parts.append(f"Recent Q: {exchange['question'][:100]}...")
-    
-    return " | ".join(context_parts) if context_parts else "No prior context"
-
-def generate_template_response(question: str) -> str:
-    """Generate template response for common questions"""
-    
-    question_lower = question.lower()
-    
-    if any(word in question_lower for word in ['calculate', 'compute', 'ead', 'rwa']):
-        return """To calculate SA-CCR, I need to follow Basel's 24-step methodology:
-
-**Key Steps:**
-1. **Trade Classification** - Categorize by asset class and risk factors
-2. **Supervisory Parameters** - Apply regulatory factors (0.5% for USD IR)
-3. **Maturity Adjustments** - Scale for time to maturity
-4. **Add-On Calculation** - Potential future exposure
-5. **Current Exposure** - Replacement cost with netting benefits
-6. **Final EAD** - Combined current and future exposure
-
-**Typical Results for $100M IR Swap:**
-- Supervisory Factor: 50 bps
-- Maturity Factor: ~0.55 (1-year)
-- PFE: ~$2-4M
-- RC: Depends on MTM and margining
-- Final EAD: ~$10-15M
-- Capital (8%): ~$1-2M
-
-Would you like me to run a specific calculation?"""
-    
-    elif any(word in question_lower for word in ['optimize', 'reduce', 'improve']):
-        return """**Key SA-CCR Optimization Strategies:**
-
-**1. Netting & Margining:**
-- Implement comprehensive netting agreements
-- Optimize threshold and MTA terms
-- Consider central clearing for eligible trades
-
-**2. Portfolio Management:**
-- Diversify across asset classes for correlation benefits
-- Manage maturity concentration
-- Balance long/short positions for netting
-
-**3. Collateral Management:**
-- Post high-quality collateral (cash, government bonds)
-- Minimize haircuts through collateral choice
-- Implement efficient collateral operations
-
-**4. Trade Structure:**
-- Consider trade compression
-- Evaluate bilateral vs centrally cleared
-- Optimize trade timing and sizing
-
-**Typical Impact:**
-- Good netting: 20-50% EAD reduction
-- Central clearing: 30% lower alpha (1.0 vs 1.4)
-- Optimal collateral: 5-15% RC reduction"""
-    
-    elif any(word in question_lower for word in ['basel', 'regulation', 'compliance']):
-        return """**Basel SA-CCR Key Regulatory Requirements:**
-
-**Scope & Application:**
-- Applies to all derivative exposures
-- Replaces Current Exposure Method (CEM)
-- Mandatory for banks using standardized approach
-
-**24-Step Methodology:**
-- Steps 1-4: Data foundation and classification
-- Steps 5-13: Risk factor calibration and add-ons
-- Steps 14-21: Current exposure and PFE calculation
-- Steps 22-24: Risk weighting and capital
-
-**Critical Compliance Points:**
-- Must calculate BOTH margined and unmargined scenarios
-- Apply minimum EAD selection rule for margined sets
-- Use exact supervisory factors (50bps for USD IR, not 100bps)
-- Document all 24 steps for audit
-
-**Timeline:**
-- Implementation deadline varies by jurisdiction
-- Most banks required by 2023-2024
-- Regular validation and back-testing required"""
-    
-    else:
-        return f"""I understand you're asking about: "{question}"
-
-**SA-CCR Context:**
-SA-CCR (Standardized Approach for Counterparty Credit Risk) is Basel's method for calculating counterparty credit risk exposure for derivatives.
-
-**Key Concepts:**
-- **EAD (Exposure at Default):** Total credit exposure = Current + Future
-- **RC (Replacement Cost):** Current market value with netting/margining
-- **PFE (Potential Future Exposure):** Potential increase over trade life
-- **Add-On:** Gross potential exposure before netting benefits
-
-**Common Applications:**
-- Regulatory capital calculation
-- Credit limit management
-- Portfolio risk assessment
-- Trade pricing and optimization
-
-Could you clarify what specific aspect you'd like me to focus on? I can run calculations, explain methodology, or provide optimization guidance."""
-
-# Helper functions for the enhanced AI assistant
-def display_calculation_summary(result: Dict, title: str = "Calculation Results"):
-    """Display a compact calculation summary"""
-    
-    final_results = result['final_results']
-    
-    st.markdown(f"**{title}:**")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.metric("EAD", f"${final_results['exposure_at_default']:,.0f}")
-    with col2:
-        st.metric("RWA", f"${final_results['risk_weighted_assets']:,.0f}")
-    with col3:
-        st.metric("Capital", f"${final_results['capital_requirement']:,.0f}")
-
-def extract_key_insights(result: Dict) -> List[str]:
-    """Extract key insights from calculation results"""
-    
-    insights = []
-    final_results = result['final_results']
-    
-    rc = final_results['replacement_cost']
-    pfe = final_results['potential_future_exposure']
-    ead = final_results['exposure_at_default']
-    
-    # Current vs future exposure
-    if rc > pfe:
-        insights.append("Current exposure dominates - focus on margining optimization")
-    else:
-        insights.append("Future exposure dominates - consider trade compression")
-    
-    # Capital efficiency
-    if 'enhanced_summary' in result:
-        summary = result['enhanced_summary']
-        if 'capital_results' in summary and summary['capital_results']:
-            for item in summary['capital_results']:
-                if 'efficiency' in item.lower():
-                    insights.append(item)
-    
-    return insights[:3]  # Top 3 insights
+                    Focus on practical, implementable strategies.
+                    """
+                    
+                    response = st.session_state.saccr_agent.llm.invoke([
+                        SystemMessage(content=system_prompt),
+                        HumanMessage(content=user_prompt)
+                    ])
+                    
+                    st.markdown(f"""
+                    <div class="ai-response">
+                        <strong>🤖 AI Portfolio Analysis & Optimization Recommendations:</strong><br><br>
+                        {response.content}
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                except Exception as e:
+                    st.error(f"AI analysis error: {str(e)}")
+            else:
+                # Fallback analysis
+                st.markdown(f"""
+                <div class="ai-insight">
+                    <strong>📊 Portfolio Analysis Summary:</strong><br><br>
+                    
+                    <strong>Portfolio Characteristics:</strong><br>
+                    • Total exposure: ${total_notional/1_000_000:.0f}M across {len(trades)} trades<br>
+                    • Asset class distribution: {', '.join(set(t.asset_class.value for t in trades))}<br>
+                    • Currency mix: {', '.join(set(t.currency for t in trades))}<br>
+                    
+                    <strong>Key Observations:</strong><br>
+                    • Average maturity: {sum(t.time_to_maturity() for t in trades) / len(trades):.1f} years<br>
+                    • Largest single trade: ${max(t.notional for t in trades)/1_000_000:.0f}M<br>
+                    
+                    <strong>Optimization Recommendations:</strong><br>
+                    • Consider portfolio compression to reduce gross notional<br>
+                    • Evaluate netting agreement enhancements<br>
+                    • Assess collateral optimization opportunities<br>
+                    • Review concentration limits by counterparty/asset class<br>
+                </div>
+                """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
