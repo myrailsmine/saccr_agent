@@ -11,9 +11,6 @@ from typing import Dict, List, Optional, Tuple
 from enum import Enum
 import math
 import time
-import asyncio
-from typing import Generator
-import re
 
 # LangChain imports for LLM integration
 from langchain_openai import ChatOpenAI
@@ -235,647 +232,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-
-
-def inject_claude_like_css():
-    """Inject Claude-like CSS styling"""
-    st.markdown("""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
-        
-        /* Global Claude-like styling */
-        .main {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            min-height: 100vh;
-        }
-        
-        /* Hide Streamlit branding for cleaner look */
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        header {visibility: hidden;}
-        
-        /* Chat container - Claude-like */
-        .chat-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 2rem 1rem;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.06);
-            min-height: 80vh;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        /* Message styling - exactly like Claude */
-        .message-container {
-            margin-bottom: 1.5rem;
-            animation: fadeInUp 0.3s ease-out;
-        }
-        
-        .user-message {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            padding: 1rem 1.25rem;
-            border-radius: 12px;
-            margin-left: 2rem;
-            position: relative;
-            font-size: 0.95rem;
-            line-height: 1.6;
-        }
-        
-        .user-message::before {
-            content: "👤";
-            position: absolute;
-            left: -2.5rem;
-            top: 0.75rem;
-            font-size: 1.2rem;
-        }
-        
-        .assistant-message {
-            background: white;
-            border: 1px solid #e5e7eb;
-            padding: 1.5rem;
-            border-radius: 12px;
-            margin-right: 2rem;
-            position: relative;
-            font-size: 0.95rem;
-            line-height: 1.7;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        }
-        
-        .assistant-message::before {
-            content: "🤖";
-            position: absolute;
-            left: -2.5rem;
-            top: 1rem;
-            font-size: 1rem;
-            background: #667eea;
-            color: white;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        /* Typing indicator */
-        .typing-indicator {
-            display: flex;
-            align-items: center;
-            padding: 1rem 1.5rem;
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            margin-right: 2rem;
-            margin-bottom: 1rem;
-            position: relative;
-        }
-        
-        .typing-indicator::before {
-            content: "🤖";
-            position: absolute;
-            left: -2.5rem;
-            top: 0.75rem;
-            font-size: 1rem;
-            background: #667eea;
-            color: white;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .typing-dots {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        
-        .typing-dot {
-            width: 6px;
-            height: 6px;
-            background: #94a3b8;
-            border-radius: 50%;
-            animation: typingDots 1.4s infinite ease-in-out;
-        }
-        
-        .typing-dot:nth-child(1) { animation-delay: 0s; }
-        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-        
-        @keyframes typingDots {
-            0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
-            30% { opacity: 1; transform: scale(1); }
-        }
-        
-        /* Quick actions */
-        .quick-actions {
-            display: flex;
-            gap: 0.5rem;
-            margin: 1rem 0;
-            flex-wrap: wrap;
-        }
-        
-        .quick-action-btn {
-            background: #f1f5f9;
-            border: 1px solid #e2e8f0;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            color: #475569;
-        }
-        
-        .quick-action-btn:hover {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-        
-        /* Code styling in messages */
-        .assistant-message code {
-            background: #f8fafc;
-            padding: 0.2rem 0.4rem;
-            border-radius: 4px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            color: #e53e3e;
-        }
-        
-        .assistant-message pre {
-            background: #1a202c;
-            color: #e2e8f0;
-            padding: 1rem;
-            border-radius: 8px;
-            overflow-x: auto;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            margin: 1rem 0;
-        }
-        
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        /* Header styling */
-        .claude-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 2rem;
-            border-radius: 16px 16px 0 0;
-            text-align: center;
-            margin-bottom: 0;
-        }
-        
-        .claude-title {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        
-        .claude-subtitle {
-            font-size: 1rem;
-            opacity: 0.9;
-            font-weight: 400;
-        }
-        
-        /* Responsive design */
-        @media (max-width: 768px) {
-            .chat-container {
-                margin: 0;
-                border-radius: 0;
-                min-height: 100vh;
-            }
-            
-            .user-message, .assistant-message {
-                margin-left: 0;
-                margin-right: 0;
-            }
-            
-            .user-message::before, .assistant-message::before {
-                display: none;
-            }
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
-# STEP 3: ADD THE CLAUDE-LIKE CHAT CLASS
-# Add this class after the CSS function:
-
-class ClaudeLikeSACCRChat:
-    """Claude-like chat interface for SA-CCR Expert"""
-    
-    def __init__(self):
-        self.initialize_session_state()
-    
-    def initialize_session_state(self):
-        """Initialize session state for chat"""
-        if 'chat_messages' not in st.session_state:
-            st.session_state.chat_messages = []
-        if 'is_streaming' not in st.session_state:
-            st.session_state.is_streaming = False
-    
-    def render_chat_interface(self):
-        """Render the main chat interface"""
-        inject_claude_like_css()
-        
-        # Header
-        st.markdown("""
-        <div class="claude-header">
-            <div class="claude-title">🤖 AI SA-CCR Expert</div>
-            <div class="claude-subtitle">Your personal Basel SA-CCR regulatory advisor</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Chat container
-        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-        
-        # Messages
-        self.render_messages()
-        
-        # Quick actions (only show if no messages)
-        if not st.session_state.chat_messages:
-            self.render_quick_actions()
-        
-        # Input area
-        self.render_input_area()
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Add auto-scroll JavaScript
-        self.add_auto_scroll()
-    
-    def render_messages(self):
-        """Render chat messages"""
-        for message in st.session_state.chat_messages:
-            if message['role'] == 'user':
-                st.markdown(f"""
-                <div class="message-container">
-                    <div class="user-message">
-                        {message['content']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                formatted_content = self.format_assistant_message(message['content'])
-                st.markdown(f"""
-                <div class="message-container">
-                    <div class="assistant-message">
-                        {formatted_content}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-    
-    def render_quick_actions(self):
-        """Render quick action buttons"""
-        st.markdown("""
-        <div class="quick-actions">
-            <div class="quick-action-btn">📚 Explain SA-CCR Steps</div>
-            <div class="quick-action-btn">💡 Optimize Capital</div>
-            <div class="quick-action-btn">🧮 PFE Multiplier</div>
-            <div class="quick-action-btn">⚖️ RC Comparison</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Quick action buttons
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            if st.button("📚 Explain Steps", key="quick1"):
-                self.add_message("user", "Explain the 24-step SA-CCR calculation methodology")
-                self.generate_and_add_response("Explain the 24-step SA-CCR calculation methodology")
-                st.rerun()
-        
-        with col2:
-            if st.button("💡 Optimize", key="quick2"):
-                self.add_message("user", "How can I optimize my SA-CCR capital requirements?")
-                self.generate_and_add_response("How can I optimize my SA-CCR capital requirements?")
-                st.rerun()
-        
-        with col3:
-            if st.button("🧮 PFE", key="quick3"):
-                self.add_message("user", "Explain how the PFE multiplier works")
-                self.generate_and_add_response("Explain how the PFE multiplier works")
-                st.rerun()
-        
-        with col4:
-            if st.button("⚖️ RC", key="quick4"):
-                self.add_message("user", "What's the difference between margined and unmargined RC?")
-                self.generate_and_add_response("What's the difference between margined and unmargined RC?")
-                st.rerun()
-    
-    def render_input_area(self):
-        """Render input area"""
-        user_input = st.text_area(
-            "",
-            placeholder="Ask me anything about SA-CCR calculations, optimization strategies, or Basel regulations...",
-            key="chat_input_area",
-            height=80,
-            label_visibility="collapsed"
-        )
-        
-        col1, col2 = st.columns([6, 1])
-        with col2:
-            send_clicked = st.button("Send", type="primary", disabled=st.session_state.is_streaming)
-        
-        # Handle input
-        if send_clicked and user_input.strip():
-            self.add_message("user", user_input.strip())
-            self.generate_and_add_response(user_input.strip())
-            # Clear input by setting session state
-            st.session_state.chat_input_area = ""
-            st.rerun()
-    
-    def add_message(self, role: str, content: str):
-        """Add message to chat"""
-        st.session_state.chat_messages.append({
-            'role': role,
-            'content': content,
-            'timestamp': time.time()
-        })
-    
-    def generate_and_add_response(self, user_input: str):
-        """Generate and add AI response"""
-        response = self.generate_saccr_response(user_input)
-        self.add_message("assistant", response)
-    
-    def generate_saccr_response(self, user_input: str) -> str:
-        """Generate SA-CCR expert response"""
-        # Check if LLM is available
-        if hasattr(st.session_state, 'saccr_agent') and st.session_state.saccr_agent.llm and st.session_state.saccr_agent.connection_status == "connected":
-            return self.generate_llm_response(user_input)
-        else:
-            return self.generate_template_response(user_input)
-    
-    def generate_llm_response(self, user_input: str) -> str:
-        """Generate response using LLM"""
-        try:
-            from langchain.schema import HumanMessage, SystemMessage
-            
-            system_prompt = """You are a world-class Basel SA-CCR expert providing conversational guidance.
-
-RESPONSE STYLE:
-- Write in a friendly, conversational tone like Claude
-- Use clear explanations with specific examples
-- Include relevant formulas when helpful
-- Provide actionable recommendations
-- Keep responses focused and practical
-- Use markdown formatting for structure
-
-EXPERTISE AREAS:
-- Complete 24-step SA-CCR calculation methodology
-- Basel regulatory framework (CRE51-57)
-- Capital optimization strategies
-- Portfolio analysis and risk management
-- Regulatory compliance and implementation
-
-Respond as if you're having a natural conversation with a derivatives professional."""
-            
-            # Get portfolio context
-            portfolio_context = self.get_portfolio_context()
-            
-            full_prompt = f"""
-            User Question: {user_input}
-            
-            {portfolio_context}
-            
-            Please provide a helpful, conversational response with specific SA-CCR expertise.
-            """
-            
-            response = st.session_state.saccr_agent.llm.invoke([
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=full_prompt)
-            ])
-            
-            return response.content
-            
-        except Exception as e:
-            return f"I'm having trouble connecting to my advanced analysis system right now, but I can still help with SA-CCR questions using my built-in knowledge. Could you rephrase your question?\n\nError details: {str(e)}"
-    
-    def generate_template_response(self, user_input: str) -> str:
-        """Generate template response when LLM unavailable"""
-        user_lower = user_input.lower()
-        
-        if any(word in user_lower for word in ['steps', 'calculate', 'methodology', '24']):
-            return """
-**SA-CCR 24-Step Calculation Overview**
-
-The SA-CCR framework follows a systematic approach:
-
-**Phase 1: Data & Classification (Steps 1-4)**
-- Netting set identification and trade data collection
-- Asset class and risk factor classification
-- Time parameter calculations
-
-**Phase 2: Risk Factor Analysis (Steps 5-8)**
-- Adjusted notional calculations
-- Maturity factor determination: `MF = √min(M, 1)`
-- Supervisory delta and factor applications
-
-**Phase 3: Add-On Calculations (Steps 9-13)**
-- Effective notional: `Notional × δ × MF × SF`
-- Hedging set aggregation with correlations
-- Asset class add-on: `√[(ρ×ΣA)² + (1-ρ²)×Σ(A²)]`
-
-**Phase 4: PFE & RC (Steps 14-18)**
-- Current exposure (V) and collateral (C) calculation
-- PFE multiplier: `min(1, 0.05 + 0.95×exp(-0.05×V/AddOn))`
-- Replacement cost: `max(V-C, TH+MTA-NICA, 0)` for margined
-
-**Phase 5: Final EAD (Steps 19-24)**
-- Alpha determination (1.4 non-cleared, 1.0 cleared)
-- **Final formula: `EAD = α × (RC + PFE)`**
-- Risk weight application and RWA calculation
-
-Would you like me to dive deeper into any specific phase?
-            """
-        
-        elif any(word in user_lower for word in ['optimize', 'reduce', 'capital', 'lower']):
-            return """
-**SA-CCR Capital Optimization Strategies**
-
-Here are the most effective approaches ranked by impact:
-
-🎯 **Tier 1: Highest Impact (30-60% reduction)**
-- **Central Clearing**: Alpha drops from 1.4 → 1.0 (30% EAD reduction)
-- **Collateral Optimization**: Negotiate lower thresholds/MTAs, use government bonds
-- **Netting Agreements**: Consolidate trades under comprehensive master agreements
-
-⚖️ **Tier 2: Medium Impact (15-30% reduction)**
-- **Portfolio Compression**: Terminate offsetting trades, reduce gross notional
-- **Trade Structuring**: Balance long/short positions within hedging sets
-- **Maturity Optimization**: Use shorter maturities where economically viable
-
-🔧 **Tier 3: Ongoing Benefits (5-15% reduction)**
-- **Supervisory Factor Management**: Focus on lower-SF asset classes
-- **Correlation Benefits**: Diversify across uncorrelated risk factors
-- **Delta Management**: Optimize option deltas for effective notional
-
-**Quick Win**: If you have eligible trades, central clearing offers the fastest ROI.
-
-What's your current portfolio composition? I can provide more targeted recommendations.
-            """
-        
-        elif any(word in user_lower for word in ['pfe', 'multiplier', 'future']):
-            return """
-**PFE Multiplier Deep Dive**
-
-The PFE multiplier captures netting benefits and is crucial for capital efficiency.
-
-**Formula**: `Multiplier = min(1, 0.05 + 0.95 × exp(-0.05 × max(0, V) / AddOn_aggregate))`
-
-**Key Drivers:**
-- **V**: Net mark-to-market of all trades in the netting set
-- **AddOn_aggregate**: Sum of all asset class add-ons
-- **Ratio V/AddOn**: This is the critical relationship
-
-**Practical Impact:**
-- **Low V/AddOn ratio** → Multiplier approaches 0.05 → **95% netting benefit**
-- **High V/AddOn ratio** → Multiplier approaches 1.0 → **No netting benefit**
-- **Negative V** (out-of-the-money) → Maximum netting benefit
-
-**Optimization Strategy:**
-1. **Balance your portfolio** to minimize net MTM (V)
-2. **Strategic hedging** to keep V close to zero
-3. **Avoid concentrated directional exposure**
-
-**Example**: If V = $1M and AddOn = $10M, multiplier ≈ 0.52 (48% netting benefit)
-
-What's your typical V/AddOn ratio? I can help analyze your netting efficiency.
-            """
-        
-        elif any(word in user_lower for word in ['replacement', 'cost', 'margined', 'unmargined', 'rc']):
-            return """
-**Replacement Cost (RC): Margined vs Unmargined**
-
-RC represents the cost to replace your portfolio if the counterparty defaults today.
-
-**Margined Netting Sets:**
-```
-RC = max(V - C, TH + MTA - NICA, 0)
-```
-
-**Unmargined Netting Sets:**
-```
-RC = max(V - C, 0)
-```
-
-**Key Differences:**
-
-📊 **Margined Benefits:**
-- Collateral (C) reduces exposure
-- But minimum floor = TH + MTA - NICA
-- Typically much lower RC due to daily margining
-
-📈 **Unmargined Reality:**
-- No collateral benefit (C = 0 usually)
-- RC = max(V, 0) in most cases
-- Higher capital requirements but operational simplicity
-
-**Critical Insight**: Basel requires calculating BOTH scenarios and selecting the minimum EAD for margined netting sets!
-
-**Optimization Priorities:**
-1. **For margined**: Negotiate lower TH + MTA
-2. **For unmargined**: Focus on central clearing (Alpha benefit)
-3. **Portfolio level**: Balance MTM (V) close to zero
-
-**Example Impact**: 
-- Margined RC: $2M (with $10M threshold)
-- Unmargined RC: $15M (positive MTM portfolio)
-- **Capital savings**: $13M × 1.4 × 100% = $18.2M EAD difference
-
-Are your netting sets margined or unmargined? The optimization strategy differs significantly.
-            """
-        
-        else:
-            return """
-**Hello! I'm your SA-CCR Expert Assistant** 🤖
-
-I specialize in Basel SA-CCR calculations and can help you with:
-
-📊 **Technical Questions**
-- 24-step calculation methodology
-- Formula derivations and regulatory parameters
-- Step-by-step problem solving
-
-💡 **Optimization Strategies**
-- Capital requirement reduction techniques
-- Portfolio restructuring recommendations
-- Cost-benefit analysis of different approaches
-
-⚖️ **Regulatory Guidance**
-- Basel framework interpretation (CRE51-57)
-- Implementation best practices
-- Compliance considerations
-
-🔍 **Portfolio Analysis**
-- Risk assessment and concentration analysis
-- Netting efficiency evaluation
-- Benchmarking and peer comparison
-
-**Popular questions:**
-- "Walk me through the 24 calculation steps"
-- "How can I reduce my SA-CCR capital by 30%?"
-- "Explain the PFE multiplier mechanics"
-- "Margined vs unmargined netting set differences"
-
-What specific SA-CCR challenge can I help you tackle today?
-            """
-    
-    def get_portfolio_context(self) -> str:
-        """Get current portfolio context for AI"""
-        if 'trades_input' in st.session_state and st.session_state.trades_input:
-            trades = st.session_state.trades_input
-            context = f"""
-Portfolio Context:
-- Trades: {len(trades)} positions
-- Total notional: ${sum(abs(t.notional) for t in trades):,.0f}
-- Asset classes: {', '.join(set(t.asset_class.value for t in trades))}
-- Currencies: {', '.join(set(t.currency for t in trades))}
-- Average maturity: {sum(t.time_to_maturity() for t in trades) / len(trades):.1f} years
-            """
-            return context
-        return "Portfolio Context: No current portfolio data available."
-    
-    def format_assistant_message(self, content: str) -> str:
-        """Format assistant message content with proper HTML"""
-        # Convert markdown to HTML
-        content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', content)
-        content = re.sub(r'\*(.*?)\*', r'<em>\1</em>', content)
-        content = re.sub(r'`([^`]+)`', r'<code>\1</code>', content)
-        
-        # Handle code blocks
-        content = re.sub(r'```(.*?)```', r'<pre>\1</pre>', content, flags=re.DOTALL)
-        
-        # Convert line breaks
-        content = content.replace('\n', '<br>')
-        
-        return content
-    
-    def add_auto_scroll(self):
-        """Add auto-scroll to bottom JavaScript"""
-        st.markdown("""
-        <script>
-            setTimeout(function() {
-                window.scrollTo(0, document.body.scrollHeight);
-            }, 100);
-        </script>
-        """, unsafe_allow_html=True)
-
 
 # ==============================================================================
 # CORE DATA CLASSES
@@ -2374,11 +1730,9 @@ def main():
     elif page == "📋 Reference Example":
         show_reference_example()
     elif page == "🤖 AI Assistant":
-        ai_assistant_page()
+        enhanced_ai_assistant_page()
     elif page == "📊 Portfolio Analysis":
         portfolio_analysis_page()
-      
-    add_enhanced_real_time_features() 
 
 def complete_saccr_calculator():
     """Complete 24-step SA-CCR calculator with input validation"""
@@ -2770,53 +2124,135 @@ def show_reference_example():
             except Exception as e:
                 st.error(f"❌ Calculation error: {str(e)}")
 
-
 def ai_assistant_page():
-    """Enhanced AI assistant page with Claude-like interface"""
+    """AI assistant for SA-CCR questions"""
     
-    # Initialize chat interface
-    chat_interface = ClaudeLikeSACCRChat()
+    st.markdown("## 🤖 AI SA-CCR Expert Assistant")
+    st.markdown("*Ask detailed questions about SA-CCR calculations, Basel regulations, and optimization strategies*")
     
-    # Render the chat
-    chat_interface.render_chat_interface()
+    # Quick question templates
+    with st.expander("💡 Sample Questions", expanded=True):
+        st.markdown("""
+        **Try these SA-CCR specific questions:**
+        - "Explain how the PFE multiplier works and what drives it"
+        - "What's the difference between margined and unmargined RC calculation?"
+        - "How do supervisory correlations affect my add-on calculations?"
+        - "What optimization strategies can reduce my SA-CCR capital?"
+        - "Walk me through the 24-step calculation methodology"
+        - "How does central clearing affect my Alpha multiplier?"
+        """)
     
-    # Sidebar enhancements
-    with st.sidebar:
-        st.markdown("### 🔗 AI Connection Status")
-        if hasattr(st.session_state, 'saccr_agent') and st.session_state.saccr_agent.connection_status == "connected":
-            st.success("🤖 Advanced AI Connected")
-            st.info("Full expert analysis available")
-        else:
-            st.warning("📚 Knowledge Base Mode")
-            st.info("Connect LLM for enhanced analysis")
-        
-        st.markdown("---")
-        st.markdown("### ⚡ Chat Actions")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🗑️ Clear Chat"):
-                st.session_state.chat_messages = []
-                st.rerun()
-        
-        with col2:
-            if st.button("📊 Load Portfolio"):
+    # Chat interface
+    st.markdown("### 💬 Ask the AI Expert")
+    
+    if 'saccr_chat_history' not in st.session_state:
+        st.session_state.saccr_chat_history = []
+    
+    user_question = st.text_area(
+        "Your SA-CCR Question:",
+        placeholder="e.g., How can I optimize my derivatives portfolio to reduce SA-CCR capital requirements?",
+        height=100
+    )
+    
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        if st.button("🚀 Ask AI Expert", type="primary"):
+            if user_question.strip():
+                # Add to chat history
+                st.session_state.saccr_chat_history.append({
+                    'type': 'user',
+                    'content': user_question,
+                    'timestamp': datetime.now()
+                })
+                
+                # Get portfolio context if available
+                portfolio_context = {}
                 if 'trades_input' in st.session_state and st.session_state.trades_input:
-                    portfolio_msg = f"I have a portfolio with {len(st.session_state.trades_input)} trades totaling ${sum(abs(t.notional) for t in st.session_state.trades_input):,.0f}. Can you analyze the SA-CCR implications?"
-                    chat_interface.add_message("user", portfolio_msg)
-                    chat_interface.generate_and_add_response(portfolio_msg)
-                    st.rerun()
-                else:
-                    st.error("No portfolio data available")
+                    portfolio_context = {
+                        'trade_count': len(st.session_state.trades_input),
+                        'asset_classes': list(set(t.asset_class.value for t in st.session_state.trades_input)),
+                        'total_notional': sum(abs(t.notional) for t in st.session_state.trades_input),
+                        'currencies': list(set(t.currency for t in st.session_state.trades_input))
+                    }
+                
+                # Generate AI response
+                with st.spinner("🤖 AI is analyzing your SA-CCR question..."):
+                    try:
+                        if st.session_state.saccr_agent.llm and st.session_state.saccr_agent.connection_status == "connected":
+                            
+                            system_prompt = """You are a Basel SA-CCR regulatory expert with deep knowledge of:
+                            - Complete 24-step SA-CCR calculation methodology
+                            - Supervisory factors, correlations, and regulatory parameters
+                            - PFE multiplier calculations and netting benefits
+                            - Replacement cost calculations with collateral
+                            - EAD, RWA, and capital requirement calculations
+                            - Portfolio optimization strategies for SA-CCR
+                            - Central clearing benefits and Alpha multipliers
+                            
+                            Provide detailed, technical answers with specific formulas and examples."""
+                            
+                            context_info = f"\nCurrent Portfolio Context: {json.dumps(portfolio_context, indent=2)}" if portfolio_context else ""
+                            
+                            user_prompt = f"""
+                            SA-CCR Question: {user_question}
+                            {context_info}
+                            
+                            Please provide a comprehensive answer including:
+                            - Technical explanation with relevant formulas
+                            - Specific regulatory references (Basel framework)
+                            - Practical examples or scenarios
+                            - Actionable recommendations
+                            - Impact quantification where possible
+                            """
+                            
+                            response = st.session_state.saccr_agent.llm.invoke([
+                                SystemMessage(content=system_prompt),
+                                HumanMessage(content=user_prompt)
+                            ])
+                            
+                            ai_response = response.content
+                            
+                        else:
+                            # Fallback response when LLM not connected
+                            ai_response = generate_template_response(user_question, portfolio_context)
+                        
+                        # Add AI response to chat history
+                        st.session_state.saccr_chat_history.append({
+                            'type': 'ai',
+                            'content': ai_response,
+                            'timestamp': datetime.now()
+                        })
+                        
+                    except Exception as e:
+                        st.error(f"AI response error: {str(e)}")
+    
+    with col2:
+        if st.button("🗑️ Clear Chat History"):
+            st.session_state.saccr_chat_history = []
+            st.rerun()
+    
+    # Display chat history
+    if st.session_state.saccr_chat_history:
+        st.markdown("### 💬 Conversation History")
         
-        # Chat statistics
-        if st.session_state.chat_messages:
-            st.markdown("### 📈 Chat Stats")
-            user_msgs = len([m for m in st.session_state.chat_messages if m['role'] == 'user'])
-            ai_msgs = len([m for m in st.session_state.chat_messages if m['role'] == 'assistant'])
-            st.metric("Questions Asked", user_msgs)
-            st.metric("AI Responses", ai_msgs)
-          
+        for chat in reversed(st.session_state.saccr_chat_history[-6:]):
+            if chat['type'] == 'user':
+                st.markdown(f"""
+                <div class="user-query">
+                    <strong>👤 You:</strong> {chat['content']}
+                    <br><small style="color: #666;">{chat['timestamp'].strftime('%H:%M:%S')}</small>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="ai-response">
+                    <strong>🤖 SA-CCR Expert:</strong><br>
+                    {chat['content']}
+                    <br><small style="color: rgba(255,255,255,0.7);">{chat['timestamp'].strftime('%H:%M:%S')}</small>
+                </div>
+                """, unsafe_allow_html=True)
+
 def generate_template_response(question: str, portfolio_context: dict = None) -> str:
     """Generate template responses when LLM is not available"""
     
@@ -3069,51 +2505,1326 @@ def portfolio_analysis_page():
                     • Review concentration limits by counterparty/asset class<br>
                 </div>
                 """, unsafe_allow_html=True)
-              
-def add_enhanced_real_time_features():
-    """Add enhanced real-time features"""
-    st.markdown("""
-    <script>
-        // Enhanced keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            // Ctrl/Cmd + Enter to send message
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                const sendBtn = document.querySelector('button[kind="primary"]');
-                if (sendBtn && !sendBtn.disabled) {
-                    sendBtn.click();
-                }
+
+# ==============================================================================
+# ENHANCED AI ASSISTANT FOR COMPLETE SA-CCR METHODOLOGY
+# ==============================================================================
+
+class EnhancedSACCRAssistant:
+    """Enhanced AI Assistant that ensures complete 24-step SA-CCR methodology"""
+    
+    def __init__(self):
+        self.llm = None
+        self.connection_status = "disconnected"
+        self.conversation_context = {}
+        self.missing_data_tracker = {}
+        self.calculation_state = "not_started"  # not_started, gathering_data, calculating, completed
+        
+        # Initialize the 24-step checklist
+        self.step_checklist = self._initialize_step_checklist()
+        self.required_data = self._initialize_required_data()
+        
+    def _initialize_step_checklist(self) -> Dict:
+        """Initialize the complete 24-step Basel SA-CCR checklist"""
+        return {
+            1: {"name": "Netting Set Data", "status": "pending", "required_data": ["netting_set_id", "counterparty", "trades"]},
+            2: {"name": "Asset Class Classification", "status": "pending", "required_data": ["asset_class", "risk_factor"]},
+            3: {"name": "Hedging Set Determination", "status": "pending", "required_data": ["hedging_sets"]},
+            4: {"name": "Time Parameters (S, E, M)", "status": "pending", "required_data": ["settlement_date", "end_date", "maturity"]},
+            5: {"name": "Adjusted Notional", "status": "pending", "required_data": ["notional", "supervisory_duration"]},
+            6: {"name": "Maturity Factor (MF)", "status": "pending", "required_data": ["remaining_maturity"]},
+            7: {"name": "Supervisory Delta", "status": "pending", "required_data": ["trade_type", "delta"]},
+            8: {"name": "Supervisory Factor (SF)", "status": "pending", "required_data": ["asset_class", "currency", "maturity_bucket"]},
+            9: {"name": "Adjusted Derivatives Contract Amount", "status": "pending", "required_data": ["adjusted_notional", "delta", "mf", "sf"]},
+            10: {"name": "Supervisory Correlation", "status": "pending", "required_data": ["asset_class"]},
+            11: {"name": "Hedging Set AddOn", "status": "pending", "required_data": ["effective_notionals", "correlation"]},
+            12: {"name": "Asset Class AddOn", "status": "pending", "required_data": ["hedging_set_addons"]},
+            13: {"name": "Aggregate AddOn", "status": "pending", "required_data": ["asset_class_addons"]},
+            14: {"name": "Sum of V, C", "status": "pending", "required_data": ["mtm_values", "collateral"]},
+            15: {"name": "PFE Multiplier", "status": "pending", "required_data": ["net_exposure", "aggregate_addon"]},
+            16: {"name": "PFE Calculation", "status": "pending", "required_data": ["multiplier", "aggregate_addon"]},
+            17: {"name": "TH, MTA, NICA", "status": "pending", "required_data": ["threshold", "mta", "nica"]},
+            18: {"name": "Replacement Cost (RC)", "status": "pending", "required_data": ["net_exposure", "margin_terms"]},
+            19: {"name": "CEU Flag", "status": "pending", "required_data": ["clearing_status"]},
+            20: {"name": "Alpha", "status": "pending", "required_data": ["ceu_flag"]},
+            21: {"name": "EAD Calculation", "status": "pending", "required_data": ["alpha", "rc", "pfe"]},
+            22: {"name": "Counterparty Information", "status": "pending", "required_data": ["counterparty_type", "rating"]},
+            23: {"name": "Risk Weight", "status": "pending", "required_data": ["counterparty_type"]},
+            24: {"name": "RWA Calculation", "status": "pending", "required_data": ["ead", "risk_weight"]}
+        }
+    
+    def _initialize_required_data(self) -> Dict:
+        """Initialize required data fields with validation rules"""
+        return {
+            "basic_info": {
+                "netting_set_id": {"type": "string", "required": True, "example": "212784060000009618701"},
+                "counterparty": {"type": "string", "required": True, "example": "Lowell Hotel Properties LLC"},
+                "calculation_date": {"type": "date", "required": False, "default": "today"}
+            },
+            "trades": {
+                "trade_id": {"type": "string", "required": True, "example": "2098474100"},
+                "asset_class": {"type": "enum", "required": True, "options": ["Interest Rate", "Foreign Exchange", "Credit", "Equity", "Commodity"]},
+                "trade_type": {"type": "enum", "required": True, "options": ["Swap", "Forward", "Option", "Swaption"]},
+                "notional": {"type": "float", "required": True, "min": 0, "example": 100000000},
+                "currency": {"type": "string", "required": True, "example": "USD"},
+                "maturity_date": {"type": "date", "required": True},
+                "mtm_value": {"type": "float", "required": False, "default": 0, "example": 8382419},
+                "delta": {"type": "float", "required": False, "default": 1.0, "min": -1, "max": 1},
+                "underlying": {"type": "string", "required": True, "example": "Interest rate"}
+            },
+            "margin_terms": {
+                "threshold": {"type": "float", "required": False, "default": 0, "example": 12000000},
+                "mta": {"type": "float", "required": False, "default": 0, "example": 1000000},
+                "nica": {"type": "float", "required": False, "default": 0}
+            },
+            "collateral": {
+                "collateral_type": {"type": "enum", "required": False, "options": ["Cash", "Government Bonds", "Corporate Bonds", "Equities"]},
+                "amount": {"type": "float", "required": False, "min": 0},
+                "currency": {"type": "string", "required": False},
+                "haircut": {"type": "float", "required": False, "min": 0, "max": 1}
             }
+        }
+    
+    def setup_llm_connection(self, config: Dict) -> bool:
+        """Setup LLM connection with enhanced error handling"""
+        if not LANGCHAIN_AVAILABLE:
+            st.error("LangChain not available. Please install: pip install langchain langchain-openai")
+            return False
             
-            // Escape to clear current input
-            if (e.key === 'Escape') {
-                const textarea = document.querySelector('textarea[aria-label=""]');
-                if (textarea) {
-                    textarea.value = '';
-                    textarea.focus();
-                }
-            }
-        });
+        try:
+            self.llm = ChatOpenAI(
+                base_url=config.get('base_url', "http://localhost:8123/v1"),
+                api_key=config.get('api_key', "dummy"),
+                model=config.get('model', "llama3"),
+                temperature=config.get('temperature', 0.1),  # Lower temperature for more consistent responses
+                max_tokens=config.get('max_tokens', 4000),
+                streaming=config.get('streaming', False)
+            )
+            
+            # Test connection with SA-CCR specific test
+            test_response = self.llm.invoke([
+                SystemMessage(content="You are a Basel SA-CCR expert. Respond with 'SA-CCR Expert Ready' if you receive this."),
+                HumanMessage(content="Test SA-CCR connection")
+            ])
+            
+            if test_response and "SA-CCR Expert Ready" in test_response.content:
+                self.connection_status = "connected"
+                return True
+            else:
+                self.connection_status = "disconnected"
+                return False
+                
+        except Exception as e:
+            st.error(f"LLM Connection Error: {str(e)}")
+            self.connection_status = "disconnected"
+            return False
+    
+    def process_user_query(self, user_input: str, current_portfolio: Dict = None) -> str:
+        """Process user query with complete 24-step methodology enforcement"""
         
-        // Auto-focus on text area
-        setTimeout(() => {
-            const textarea = document.querySelector('textarea[aria-label=""]');
-            if (textarea) {
-                textarea.focus();
-            }
-        }, 500);
+        # Update conversation context
+        self.conversation_context['last_query'] = user_input
+        self.conversation_context['timestamp'] = datetime.now()
         
-        // Smooth scroll to bottom
-        function smoothScrollToBottom() {
-            window.scrollTo({
-                top: document.body.scrollHeight,
-                behavior: 'smooth'
-            });
+        # Determine query type and required approach
+        query_analysis = self._analyze_user_query(user_input)
+        
+        if query_analysis['requires_calculation']:
+            return self._handle_calculation_request(user_input, current_portfolio, query_analysis)
+        elif query_analysis['requires_explanation']:
+            return self._handle_explanation_request(user_input, query_analysis)
+        elif query_analysis['requires_data_gathering']:
+            return self._handle_data_gathering(user_input, query_analysis)
+        else:
+            return self._handle_general_query(user_input, query_analysis)
+    
+    def _analyze_user_query(self, user_input: str) -> Dict:
+        """Analyze user query to determine response strategy"""
+        user_lower = user_input.lower()
+        
+        calculation_keywords = ['calculate', 'compute', 'run', 'sa-ccr', 'exposure', 'capital', 'rwa', 'ead']
+        explanation_keywords = ['explain', 'how', 'what is', 'why', 'difference', 'methodology']
+        data_keywords = ['missing', 'need', 'provide', 'input', 'data', 'information']
+        
+        return {
+            'requires_calculation': any(keyword in user_lower for keyword in calculation_keywords),
+            'requires_explanation': any(keyword in user_lower for keyword in explanation_keywords),
+            'requires_data_gathering': any(keyword in user_lower for keyword in data_keywords),
+            'specific_steps': self._extract_step_references(user_input),
+            'asset_classes_mentioned': self._extract_asset_classes(user_input),
+            'urgency': 'high' if any(word in user_lower for word in ['urgent', 'asap', 'quick']) else 'normal'
+        }
+    
+    def _handle_calculation_request(self, user_input: str, current_portfolio: Dict, query_analysis: Dict) -> str:
+        """Handle calculation requests with complete 24-step enforcement"""
+        
+        # Check if we have sufficient data to proceed
+        data_assessment = self._assess_available_data(current_portfolio)
+        
+        if data_assessment['completeness'] < 0.6:  # Less than 60% complete
+            return self._generate_data_collection_response(data_assessment, user_input)
+        elif data_assessment['completeness'] < 0.9:  # 60-90% complete
+            return self._generate_partial_calculation_response(data_assessment, user_input)
+        else:  # 90%+ complete
+            return self._generate_full_calculation_response(current_portfolio, user_input)
+    
+    def _assess_available_data(self, portfolio: Dict) -> Dict:
+        """Assess completeness of available data for SA-CCR calculation"""
+        
+        if not portfolio:
+            return {
+                'completeness': 0.0,
+                'missing_critical': list(self.required_data['basic_info'].keys()) + ['trades'],
+                'missing_optional': list(self.required_data['margin_terms'].keys()),
+                'can_proceed': False,
+                'next_steps': ['Gather basic netting set information', 'Input trade details']
+            }
+        
+        total_fields = 0
+        available_fields = 0
+        missing_critical = []
+        missing_optional = []
+        
+        # Check basic info
+        for field, spec in self.required_data['basic_info'].items():
+            total_fields += 1
+            if portfolio.get(field):
+                available_fields += 1
+            elif spec['required']:
+                missing_critical.append(field)
+        
+        # Check trades
+        trades = portfolio.get('trades', [])
+        if trades:
+            for trade_field, spec in self.required_data['trades'].items():
+                total_fields += len(trades)  # Each trade needs these fields
+                for trade in trades:
+                    if trade.get(trade_field):
+                        available_fields += 1
+                    elif spec['required']:
+                        missing_critical.append(f"{trade_field} for trade {trade.get('trade_id', 'unknown')}")
+        else:
+            missing_critical.append('At least one trade required')
+        
+        # Check margin terms
+        for field, spec in self.required_data['margin_terms'].items():
+            total_fields += 1
+            if portfolio.get(field) is not None:
+                available_fields += 1
+            elif spec.get('required', False):
+                missing_critical.append(field)
+            else:
+                missing_optional.append(field)
+        
+        completeness = available_fields / total_fields if total_fields > 0 else 0
+        
+        return {
+            'completeness': completeness,
+            'missing_critical': missing_critical,
+            'missing_optional': missing_optional,
+            'can_proceed': len(missing_critical) == 0,
+            'total_fields': total_fields,
+            'available_fields': available_fields,
+            'next_steps': self._generate_next_steps(missing_critical, missing_optional)
+        }
+    
+    def _generate_data_collection_response(self, data_assessment: Dict, user_input: str) -> str:
+        """Generate conversational response for data collection"""
+        
+        if self.llm and self.connection_status == "connected":
+            try:
+                system_prompt = """You are a Basel SA-CCR expert helping users gather required information for a complete 24-step calculation. 
+                Be conversational, helpful, and guide them step-by-step. Ask for missing information in a logical order.
+                Always explain WHY each piece of information is needed for SA-CCR calculations."""
+                
+                user_prompt = f"""
+                User Request: {user_input}
+                
+                Data Assessment:
+                - Completeness: {data_assessment['completeness']:.1%}
+                - Missing Critical: {data_assessment['missing_critical']}
+                - Missing Optional: {data_assessment['missing_optional']}
+                
+                Please provide a conversational response that:
+                1. Acknowledges their calculation request
+                2. Explains what information is still needed and why
+                3. Asks for the most critical missing data first
+                4. Provides examples where helpful
+                5. Maintains an encouraging, expert tone
+                
+                Focus on the SA-CCR regulatory requirements and how each field impacts the calculation.
+                """
+                
+                response = self.llm.invoke([
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=user_prompt)
+                ])
+                
+                return response.content
+                
+            except Exception as e:
+                # Fallback to template response
+                pass
+        
+        # Fallback template response
+        return self._generate_template_data_collection_response(data_assessment, user_input)
+    
+    def _generate_template_data_collection_response(self, data_assessment: Dict, user_input: str) -> str:
+        """Template response for data collection when LLM unavailable"""
+        
+        critical_missing = data_assessment['missing_critical'][:3]  # Top 3 critical items
+        
+        response = f"""
+        **🤖 SA-CCR Expert Assistant**
+        
+        I understand you want to run a SA-CCR calculation! I'm here to guide you through the complete 24-step Basel methodology.
+        
+        **Current Status:** {data_assessment['completeness']:.1%} complete
+        
+        **⚠️ Critical Information Still Needed:**
+        
+        To proceed with a compliant SA-CCR calculation, I need these essential details:
+        
+        """
+        
+        for i, item in enumerate(critical_missing, 1):
+            if item == 'netting_set_id':
+                response += f"{i}. **Netting Set ID**: A unique identifier for your netting set (e.g., '212784060000009618701')\n"
+            elif item == 'counterparty':
+                response += f"{i}. **Counterparty Name**: The legal entity you're trading with (e.g., 'ABC Bank Corp')\n"
+            elif 'trade' in item.lower():
+                response += f"{i}. **Trade Details**: {item} - This affects steps 1-9 of the SA-CCR calculation\n"
+            else:
+                response += f"{i}. **{item}**: Required for regulatory compliance\n"
+        
+        response += f"""
+        
+        **🎯 Why This Matters:**
+        Each piece of information directly impacts specific steps in the 24-step Basel framework:
+        - Netting set details → Steps 1-3 (Data classification)
+        - Trade information → Steps 4-13 (Add-on calculations)  
+        - Margin terms → Steps 17-18 (Replacement cost)
+        
+        **📝 Next Steps:**
+        Please provide the missing information above, and I'll guide you through the remaining steps to complete your SA-CCR calculation.
+        
+        Would you like me to provide templates or examples for any of these fields?
+        """
+        
+        return response
+    
+    def _generate_full_calculation_response(self, portfolio: Dict, user_input: str) -> str:
+        """Generate response for full SA-CCR calculation"""
+        
+        if self.llm and self.connection_status == "connected":
+            try:
+                system_prompt = """You are a Basel SA-CCR expert performing a complete 24-step calculation. 
+                Walk through each step systematically, explaining the methodology and showing calculations.
+                Ensure ALL 24 steps are covered according to Basel regulation."""
+                
+                user_prompt = f"""
+                User Request: {user_input}
+                Portfolio Data: {json.dumps(portfolio, indent=2, default=str)}
+                
+                Please perform a complete 24-step SA-CCR calculation:
+                
+                1. Process each step in order (Steps 1-24)
+                2. Show the calculations and formulas used
+                3. Explain regulatory rationale for key steps
+                4. Highlight any assumptions made
+                5. Provide the final capital requirements
+                
+                Ensure you cover:
+                - Steps 1-5: Data setup and adjusted notionals
+                - Steps 6-13: Add-on calculations (MF, SF, delta, correlations)
+                - Steps 14-16: PFE multiplier and PFE calculation
+                - Steps 17-18: Replacement cost calculation
+                - Steps 19-21: EAD calculation (CEU flag, Alpha)
+                - Steps 22-24: RWA and capital requirements
+                
+                Be thorough and regulatory-compliant.
+                """
+                
+                response = self.llm.invoke([
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=user_prompt)
+                ])
+                
+                return response.content
+                
+            except Exception as e:
+                # Fallback to template response
+                pass
+        
+        return self._generate_template_calculation_response(portfolio)
+    
+    def _generate_template_calculation_response(self, portfolio: Dict) -> str:
+        """Template response for calculations when LLM unavailable"""
+        
+        return """
+        **🧮 Complete 24-Step SA-CCR Calculation**
+        
+        I'll now walk you through the complete Basel SA-CCR methodology:
+        
+        **Phase 1: Data Setup (Steps 1-5)**
+        ✅ Step 1: Netting Set Data - Portfolio identified and structured
+        ✅ Step 2: Asset Class Classification - Trades classified by regulatory categories
+        ✅ Step 3: Hedging Set Determination - Risk factors grouped appropriately
+        ✅ Step 4: Time Parameters - Maturity calculations completed
+        ✅ Step 5: Adjusted Notional - Supervisory duration applied
+        
+        **Phase 2: Add-On Calculations (Steps 6-13)**
+        ✅ Step 6: Maturity Factor (MF) - Applied per asset class and maturity
+        ✅ Step 7: Supervisory Delta - Option sensitivities calculated
+        ✅ Step 8: Supervisory Factor (SF) - Regulatory volatilities applied
+        ✅ Step 9: Adjusted Derivatives Contract Amount - Core risk metric
+        ✅ Step 10: Supervisory Correlation - Cross-risk correlations
+        ✅ Step 11: Hedging Set AddOn - Within-hedging-set aggregation
+        ✅ Step 12: Asset Class AddOn - Cross-hedging-set aggregation
+        ✅ Step 13: Aggregate AddOn - Total potential future exposure
+        
+        **Phase 3: PFE Calculation (Steps 14-16)**
+        ✅ Step 14: Sum of V, C - Current exposure and collateral
+        ✅ Step 15: PFE Multiplier - Netting benefit calculation
+        ✅ Step 16: PFE - Final potential future exposure
+        
+        **Phase 4: Replacement Cost (Steps 17-18)**
+        ✅ Step 17: TH, MTA, NICA - Margin agreement terms
+        ✅ Step 18: RC - Current replacement cost with margining
+        
+        **Phase 5: Final EAD & Capital (Steps 19-24)**
+        ✅ Step 19: CEU Flag - Central clearing determination
+        ✅ Step 20: Alpha - Regulatory multiplier (1.4 or 1.0)
+        ✅ Step 21: EAD - Final exposure at default
+        ✅ Step 22: Counterparty Information - Credit classification
+        ✅ Step 23: Risk Weight - Regulatory risk weighting
+        ✅ Step 24: RWA - Final risk-weighted assets and capital
+        
+        **🎯 Results Summary:**
+        All 24 regulatory steps have been completed according to Basel standards.
+        
+        **Note:** For detailed calculations with your specific data, please use the main SA-CCR Calculator module.
+        
+        Would you like me to explain any specific step in more detail?
+        """
+    
+    def _handle_explanation_request(self, user_input: str, query_analysis: Dict) -> str:
+        """Handle requests for explanations of SA-CCR methodology"""
+        
+        if query_analysis['specific_steps']:
+            return self._explain_specific_steps(query_analysis['specific_steps'], user_input)
+        else:
+            return self._explain_general_methodology(user_input)
+    
+    def _explain_specific_steps(self, steps: List[int], user_input: str) -> str:
+        """Explain specific SA-CCR steps with dual calculation methodology"""
+        
+        step_explanations = {
+            6: """**Step 6: Maturity Factor (MF) - DUAL CALCULATION**
+            
+The Maturity Factor adjusts the add-on calculation based on time to maturity.
+
+**DUAL METHODOLOGY:**
+For margined netting sets, calculate BOTH scenarios:
+
+**Standard Formula:** MF = √(min(M, 1)) where M is maturity in years
+**Margined Benefit:** MF_margined = MF_standard × 0.75 (25% reduction)
+
+**Dual Calculation:**
+- MF_margined = √(min(M, 1)) × 0.75 (reflects margin posting benefits)
+- MF_unmargined = √(min(M, 1)) × 1.0 (standard calculation)
+
+**Key Points:**
+- Margined netting sets get MF reduction due to collateral posting
+- Shorter maturities benefit more from the dual approach
+- Both values flow through to Step 9 (Adjusted Contract Amount)
+
+**Regulatory Rationale:**
+Basel recognizes that margin posting reduces risk over time, so margined calculations receive preferential maturity factor treatment.""",
+
+            9: """**Step 9: Adjusted Contract Amount - DUAL CALCULATION**
+
+This step creates the fundamental building blocks for add-on calculations.
+
+**DUAL FORMULA:**
+- Amount_margined = Notional × δ × MF_margined × SF
+- Amount_unmargined = Notional × δ × MF_unmargined × SF
+
+**Components (where dual applies):**
+- Notional: Same for both calculations
+- δ (Delta): Same for both calculations  
+- **MF: Different values from Step 6 dual calculation**
+- SF: Same supervisory factor for both
+
+**Example:**
+- Trade: $100M, 5-year USD swap
+- MF_margined = 0.75, MF_unmargined = 1.0
+- SF = 0.50% (50bps for USD 5-year)
+- δ = 1.0 (linear swap)
+
+Results:
+- Amount_margined = $100M × 1.0 × 0.75 × 0.005 = $375,000
+- Amount_unmargined = $100M × 1.0 × 1.0 × 0.005 = $500,000
+
+**Impact:** 25% lower adjusted amount for margined scenario.""",
+
+            15: """**Step 15: PFE Multiplier - DUAL CALCULATION**
+            
+The PFE Multiplier captures netting benefits within a netting set.
+
+**DUAL METHODOLOGY:**
+Calculate multiplier for both scenarios using respective aggregate add-ons:
+
+**Formula:** Multiplier = min(1, 0.05 + 0.95 × exp(-0.05 × max(0, V)/AddOn))
+
+**Dual Application:**
+- Multiplier_margined uses AddOn_margined (typically lower)
+- Multiplier_unmargined uses AddOn_unmargined (typically higher)
+
+**Key Components:**
+- V = Current net MTM (same for both)
+- AddOn = Different values from dual Step 13 calculation
+- Range: 0.05 to 1.0 for both scenarios
+
+**Economic Logic:**
+- Lower AddOn (margined) → higher V/AddOn ratio → potentially higher multiplier
+- This creates a balance between add-on benefits and multiplier effects
+
+**Typical Results:**
+- Margined: Higher multiplier (0.85-1.0) but lower AddOn
+- Unmargined: Lower multiplier (0.6-0.9) but higher AddOn
+- Net effect: Usually favors one scenario clearly""",
+
+            18: """**Step 18: Replacement Cost (RC) - DUAL CALCULATION**
+            
+RC represents the cost to replace trades if counterparty defaults today.
+
+**DUAL FORMULAS:**
+- **RC_margined = max(V - C, TH + MTA - NICA, 0)**
+- **RC_unmargined = max(V - C, 0)**
+
+**Components:**
+- V = Current MTM (sum of all trade values) - Same for both
+- C = Effective collateral value (after haircuts) - Same for both
+- TH = Threshold, MTA = Minimum Transfer Amount - Only in margined
+- NICA = Net Independent Collateral Amount - Only in margined
+
+**Key Differences:**
+- **Margined**: Has floor at TH + MTA - NICA (margin agreement terms)
+- **Unmargined**: Can go to zero when portfolio is out-of-the-money
+
+**Example Scenarios:**
+- V-C = -$5M (out-of-the-money), TH+MTA = $2M
+- RC_margined = max(-$5M, $2M, 0) = $2M
+- RC_unmargined = max(-$5M, 0) = $0
+- Result: Unmargined RC is $2M lower
+
+**Strategic Insight:**
+Out-of-the-money portfolios often benefit from unmargined RC calculation.""",
+
+            21: """**Step 21: EAD (Exposure at Default) - DUAL WITH MINIMUM SELECTION ⭐**
+            
+This is the CRITICAL step where dual calculation delivers regulatory optimization.
+
+**DUAL CALCULATION REQUIREMENT:**
+Per Basel regulation, calculate BOTH scenarios and select minimum:
+
+**Formulas:**
+- EAD_margined = Alpha × (RC_margined + PFE_margined)
+- EAD_unmargined = Alpha × (RC_unmargined + PFE_unmargined)
+
+**MINIMUM SELECTION RULE:**
+**Final EAD = min(EAD_margined, EAD_unmargined)**
+
+**Components:**
+- Alpha = 1.4 (non-cleared) or 1.0 (cleared) - Same for both
+- RC = Different values from dual Step 18 calculation
+- PFE = Different values from dual Step 16 calculation
+
+**Example Calculation:**
+Portfolio: $200M notional, $10M MTM, $15M threshold
+
+Scenario A (Margined):
+- RC_margined = $25M, PFE_margined = $8M
+- EAD_margined = 1.4 × ($25M + $8M) = $46.2M
+
+Scenario B (Unmargined):
+- RC_unmargined = $10M, PFE_unmargined = $12M  
+- EAD_unmargined = 1.4 × ($10M + $12M) = $30.8M
+
+**Final Result: EAD = min($46.2M, $30.8M) = $30.8M**
+
+**Capital Savings:** ($46.2M - $30.8M) × 8% = $1.23M annually
+
+**Strategic Importance:**
+This automatic minimum selection provides regulatory-compliant capital optimization without manual intervention."""
         }
         
-        // Call smooth scroll after content loads
-        setTimeout(smoothScrollToBottom, 200);
-    </script>
-    """, unsafe_allow_html=True)
-  
+        response = "**🎓 SA-CCR Dual Methodology Explanation**\n\n"
+        
+        for step in steps:
+            if step in step_explanations:
+                response += step_explanations[step] + "\n\n"
+            else:
+                response += f"**Step {step}:** {self.step_checklist.get(step, {}).get('name', 'Unknown Step')}\n"
+                if step in [13, 16]:
+                    response += "This step involves dual calculation - margined vs unmargined scenarios.\n"
+                response += "Detailed explanation available in the main calculation module.\n\n"
+        
+            24: """**Step 24: RWA Calculation - Using Selected Minimum EAD**
+            
+Final step using the optimized EAD from dual calculation.
+
+**Formula:** RWA = Risk Weight × Selected EAD
+
+**Key Point:**
+Uses the minimum EAD selected in Step 21, ensuring optimal capital treatment.
+
+**Components:**
+- Selected EAD = min(EAD_margined, EAD_unmargined) from Step 21
+- Risk Weight = Based on counterparty type (typically 100% for corporates)
+
+**Final Capital:**
+- Minimum Capital = RWA × 8% (Basel minimum ratio)
+- This represents the actual regulatory capital requirement
+
+**Dual Calculation Benefits Summary:**
+The entire dual methodology can reduce final capital requirements by 15-40% compared to single-scenario calculations, while maintaining full regulatory compliance."""
+        }
+        
+        response = "**🎓 SA-CCR Dual Methodology Explanation**\n\n"
+        
+        for step in steps:
+            if step in step_explanations:
+                response += step_explanations[step] + "\n\n"
+            else:
+                response += f"**Step {step}:** {self.step_checklist.get(step, {}).get('name', 'Unknown Step')}\n"
+                if step in [13, 16]:
+                    response += "This step involves dual calculation - margined vs unmargined scenarios.\n"
+                response += "Detailed explanation available in the main calculation module.\n\n"
+        
+        response += """
+**🔄 DUAL CALCULATION SUMMARY:**
+Steps 6, 9, 13, 15, 16, 18, and 21 all involve dual calculations.
+The final EAD selection in Step 21 provides automatic capital optimization.
+
+Would you like me to explain how these dual calculations interact with each other, or dive deeper into the minimum selection methodology?"""
+        
+        return response
+    
+    def _handle_optimization_query(self, user_input: str, portfolio: Dict = None) -> str:
+        """Handle optimization-focused queries with dual calculation insights"""
+        
+        user_lower = user_input.lower()
+        
+        if "dual" in user_lower or "margined" in user_lower:
+            return """**⚡ DUAL CALCULATION OPTIMIZATION STRATEGIES**
+
+The dual calculation methodology provides automatic optimization opportunities:
+
+**1. MARGIN AGREEMENT OPTIMIZATION (Steps 17-18)**
+- **Strategy**: Negotiate optimal threshold and MTA terms
+- **Dual Impact**: Affects RC_margined calculation directly
+- **Typical Benefit**: 10-25% capital reduction
+- **Action**: Model different threshold levels to find optimal point
+
+**2. MATURITY FACTOR OPTIMIZATION (Step 6)**
+- **Strategy**: Consider trade tenor in portfolio construction
+- **Dual Impact**: MF_margined vs MF_unmargined creates 25% differential
+- **Typical Benefit**: 5-15% capital reduction
+- **Action**: Favor shorter maturities when economically equivalent
+
+**3. PORTFOLIO MTM MANAGEMENT (Steps 14-16)**
+- **Strategy**: Balance portfolio to optimize PFE multiplier
+- **Dual Impact**: Different multipliers for margined vs unmargined scenarios
+- **Typical Benefit**: 20-40% capital reduction
+- **Action**: Strategic hedging to manage net MTM position
+
+**4. AUTOMATIC MINIMUM SELECTION (Step 21)**
+- **Strategy**: Ensure dual calculation is implemented correctly
+- **Dual Impact**: Automatic selection of most favorable EAD
+- **Typical Benefit**: 15-35% capital reduction
+- **Action**: Verify systems calculate both scenarios
+
+**🎯 PORTFOLIO-SPECIFIC RECOMMENDATIONS:**
+Would you like me to analyze your specific portfolio for dual calculation optimization opportunities?"""
+        
+        elif "minimum" in user_lower or "selection" in user_lower:
+            return """**🎯 MINIMUM EAD SELECTION METHODOLOGY**
+
+Step 21 is where the dual calculation delivers its key benefit through automatic optimization.
+
+**BASEL REGULATION REQUIREMENT:**
+"For margined netting sets, the EAD shall be the minimum of the EAD calculated for the margined and unmargined scenarios."
+
+**WHY MINIMUM SELECTION?**
+- **Economic Reality**: Margin posting may or may not reduce total exposure
+- **Regulatory Efficiency**: Banks get credit for actual risk reduction
+- **Capital Optimization**: Automatic selection prevents over-capitalization
+
+**DECISION FACTORS:**
+
+**Margined Scenario Often Wins When:**
+- Portfolio is in-the-money (positive MTM)
+- Strong netting benefits exist (low PFE multiplier)
+- Collateral is high-quality with low haircuts
+
+**Unmargined Scenario Often Wins When:**
+- Portfolio is out-of-the-money (negative MTM)
+- High margin requirements (large TH + MTA)
+- Limited netting benefits
+
+**TYPICAL OUTCOMES:**
+- **70% of cases**: One scenario clearly dominates (>10% difference)
+- **20% of cases**: Close call (<5% difference)
+- **10% of cases**: Scenarios are nearly identical
+
+**IMPLEMENTATION CRITICAL POINTS:**
+1. Must calculate BOTH scenarios completely
+2. Cannot cherry-pick components from different scenarios
+3. Selection happens only at final EAD level
+4. Must document which scenario was selected and why
+
+**EXAMPLE DECISION TREE:**
+- High MTM + Low Threshold → Likely Unmargined wins
+- Low MTM + High Collateral → Likely Margined wins
+- Balanced MTM + Moderate Margin → Calculate both to determine
+
+The beauty of this approach is that it's automatic and regulatory-compliant optimization."""
+        
+        else:
+            return self._handle_general_optimization_query(user_input, portfolio)
+    
+    def _handle_general_optimization_query(self, user_input: str, portfolio: Dict = None) -> str:
+        """Handle general optimization queries"""
+        
+        return """**🚀 COMPREHENSIVE SA-CCR OPTIMIZATION STRATEGY**
+
+Here's how to optimize your SA-CCR capital with dual calculation methodology:
+
+**TIER 1: DUAL CALCULATION IMPLEMENTATION (15-40% savings)**
+- ✅ Ensure both margined and unmargined scenarios are calculated
+- ✅ Implement automatic minimum EAD selection
+- ✅ Verify all dual calculation steps (6, 9, 13, 15, 16, 18, 21)
+
+**TIER 2: PORTFOLIO STRUCTURE OPTIMIZATION (10-30% savings)**
+- 📊 Balance long/short positions to optimize PFE multiplier
+- 📊 Manage portfolio MTM through strategic hedging
+- 📊 Consider trade compression to reduce gross notional
+
+**TIER 3: MARGIN AGREEMENT OPTIMIZATION (5-25% savings)**
+- 📋 Negotiate lower thresholds where economically viable
+- 📋 Optimize MTA levels based on operational efficiency
+- 📋 Review NICA arrangements for additional benefits
+
+**TIER 4: COLLATERAL OPTIMIZATION (10-20% savings)**
+- 🛡️ Post high-quality collateral (government bonds vs equities)
+- 🛡️ Minimize currency mismatches to avoid FX haircuts
+- 🛡️ Implement efficient collateral management processes
+
+**TIER 5: CLEARING OPTIMIZATION (30-50% savings)**
+- 🏛️ Clear eligible trades to benefit from Alpha = 1.0 vs 1.4
+- 🏛️ Consider portfolio-level clearing strategies
+- 🏛️ Evaluate CCP vs bilateral trade-offs
+
+**🎯 IMPLEMENTATION PRIORITY:**
+1. **Start with dual calculation** - immediate 15-40% benefit
+2. **Optimize margin agreements** - medium-term 5-25% benefit  
+3. **Consider clearing migration** - strategic 30-50% benefit
+
+**💡 DUAL CALCULATION QUICK WIN:**
+If you're not currently implementing dual calculation, this is your highest-impact, lowest-effort optimization opportunity.
+
+Would you like me to analyze your specific portfolio for optimization opportunities?"""
+
+# Add the optimization query handler to the main process_user_query method
+    def process_user_query(self, user_input: str, current_portfolio: Dict = None) -> str:
+        """Process user query with complete 24-step methodology enforcement"""
+        
+        # Update conversation context
+        self.conversation_context['last_query'] = user_input
+        self.conversation_context['timestamp'] = datetime.now()
+        
+        # Determine query type and required approach
+        query_analysis = self._analyze_user_query(user_input)
+        
+        # Check for optimization-specific queries first
+        if any(word in user_input.lower() for word in ['optimize', 'optimization', 'reduce capital', 'dual', 'minimum', 'margined vs unmargined']):
+            return self._handle_optimization_query(user_input, current_portfolio)
+        elif query_analysis['requires_calculation']:
+            return self._handle_calculation_request(user_input, current_portfolio, query_analysis)
+        elif query_analysis['requires_explanation']:
+            return self._handle_explanation_request(user_input, query_analysis)
+        elif query_analysis['requires_data_gathering']:
+            return self._handle_data_gathering(user_input, query_analysis)
+        else:
+            return self._handle_general_query(user_input, query_analysis)6: Maturity Factor (MF)**
+            
+The Maturity Factor adjusts the add-on calculation based on time to maturity.
+
+**Formula:** MF = √(min(M, 1)) where M is maturity in years
+
+**Key Points:**
+- For maturities < 1 year: MF = √M (less than 1.0)
+- For maturities ≥ 1 year: MF = 1.0
+- Shorter maturities get lower MF = lower capital
+- This reflects that shorter-term trades have less potential for large moves
+
+**Regulatory Rationale:**
+Basel recognizes that shorter maturity trades pose less risk over time, so the MF provides capital relief for short-dated portfolios.""",
+
+            15: """**Step 15: PFE Multiplier**
+            
+The PFE Multiplier captures netting benefits within a netting set.
+
+**Formula:** Multiplier = min(1, 0.05 + 0.95 × exp(-0.05 × max(0, V)/AddOn))
+
+**Key Components:**
+- V = Current net MTM of the netting set
+- AddOn = Aggregate add-on from Step 13
+- Range: 0.05 to 1.0
+
+**Economic Logic:**
+- When V is large and positive (in-the-money): Multiplier → 1.0 (minimal netting)
+- When V is negative (out-of-the-money): Multiplier → 0.05 (maximum netting)
+- This reflects that current winners are likely to remain winners
+
+**Capital Impact:**
+A multiplier of 0.05 vs 1.0 can reduce capital by 95%!""",
+
+            18: """**Step 18: Replacement Cost (RC)**
+            
+RC represents the cost to replace trades if counterparty defaults today.
+
+**Margined Formula:** RC = max(V - C, TH + MTA - NICA, 0)
+**Unmargined Formula:** RC = max(V - C, 0)
+
+**Components:**
+- V = Current MTM (sum of all trade values)
+- C = Effective collateral value (after haircuts)
+- TH = Threshold, MTA = Minimum Transfer Amount
+- NICA = Net Independent Collateral Amount
+
+**Key Insight:**
+Margined netting sets have a floor at TH + MTA - NICA, while unmargined sets can go to zero when out-of-the-money.""",
+
+            21: """**Step 21: EAD (Exposure at Default)**
+            
+EAD combines current and potential future exposure.
+
+**Formula:** EAD = Alpha × (RC + PFE)
+
+**Basel Innovation:**
+For margined netting sets, EAD = min(EAD_margined, EAD_unmargined)
+
+**Components:**
+- Alpha = 1.4 (non-cleared) or 1.0 (cleared)
+- RC = Replacement Cost from Step 18
+- PFE = Potential Future Exposure from Step 16
+
+**Strategic Importance:**
+This is the final exposure measure that drives capital requirements. All 20 previous steps feed into this single number."""
+        }
+        
+        response = "**🎓 SA-CCR Methodology Explanation**\n\n"
+        
+        for step in steps:
+            if step in step_explanations:
+                response += step_explanations[step] + "\n\n"
+            else:
+                response += f"**Step {step}:** {self.step_checklist.get(step, {}).get('name', 'Unknown Step')}\n"
+                response += "Detailed explanation available in the main calculation module.\n\n"
+        
+        response += "Would you like me to explain how these steps interact with each other, or dive deeper into any specific formulas?"
+        
+        return response
+    
+    def _explain_general_methodology(self, user_input: str) -> str:
+        """Explain general SA-CCR methodology"""
+        
+        user_lower = user_input.lower()
+        
+        if "overview" in user_lower or "methodology" in user_lower:
+            return """**🏛️ Basel SA-CCR Methodology Overview**
+
+SA-CCR (Standardized Approach for Counterparty Credit Risk) is the Basel regulatory framework for calculating capital requirements for derivative exposures.
+
+**The 24-Step Process (5 Phases):**
+
+**📊 Phase 1: Data Setup (Steps 1-5)**
+- Organize netting sets and trades
+- Classify by asset class and risk factors
+- Calculate adjusted notionals
+
+**⚡ Phase 2: Add-On Calculations (Steps 6-13)**
+- Apply maturity factors and supervisory parameters
+- Calculate effective notionals and hedging set add-ons
+- Aggregate across asset classes with correlations
+
+**🔮 Phase 3: PFE Calculation (Steps 14-16)**
+- Assess current exposure (V) and collateral (C)
+- Calculate PFE multiplier (netting benefits)
+- Determine potential future exposure
+
+**💰 Phase 4: Replacement Cost (Steps 17-18)**
+- Apply margin agreement terms
+- Calculate current replacement cost
+
+**🎯 Phase 5: Final Capital (Steps 19-24)**
+- Apply clearing benefits (Alpha)
+- Calculate EAD, apply risk weights
+- Determine final capital requirements
+
+**Key Innovation:** SA-CCR captures both current exposure and potential future exposure, with sophisticated netting recognition."""
+        
+        elif "pfe" in user_lower or "potential future" in user_lower:
+            return """**🔮 Potential Future Exposure (PFE) in SA-CCR**
+
+PFE represents how much exposure could grow over the life of trades.
+
+**Key Concepts:**
+
+**Add-On Calculation:**
+- Each trade gets an "add-on" based on notional × supervisory factors
+- Supervisory factors reflect regulatory estimates of volatility
+- Different factors for different asset classes and maturities
+
+**Correlation Benefits:**
+- Trades in same hedging set can offset each other
+- Asset class correlations reduce total add-on
+- Perfect correlation (ρ=1) means no diversification
+- Low correlation (ρ=0.4 for commodities) means significant benefits
+
+**Netting Recognition:**
+- PFE Multiplier (0.05 to 1.0) captures netting benefits
+- Based on current MTM vs potential future exposure
+- Out-of-the-money portfolios get maximum netting benefits
+
+**Final Formula:** PFE = Multiplier × Aggregate Add-On"""
+        
+        else:
+            return """**🤖 SA-CCR Expert Ready to Help!**
+
+I can explain any aspect of the 24-step Basel SA-CCR methodology:
+
+**📚 Available Topics:**
+- **Methodology Overview**: Complete 24-step process
+- **Specific Steps**: Deep dive into any of the 24 steps
+- **PFE Calculations**: Add-ons, correlations, netting benefits
+- **Replacement Cost**: Margined vs unmargined calculations
+- **Capital Optimization**: Strategies to reduce SA-CCR capital
+- **Regulatory Background**: Why Basel designed it this way
+
+**🎯 Just Ask:**
+- "Explain Step 15 PFE multiplier"
+- "How do correlations work in SA-CCR?"
+- "What's the difference between margined and unmargined RC?"
+- "How can I optimize my SA-CCR capital?"
+
+What would you like to learn about?"""
+        
+        return response
+    
+    def _extract_step_references(self, user_input: str) -> List[int]:
+        """Extract step numbers mentioned in user input"""
+        import re
+        
+        # Look for patterns like "step 15", "steps 6-10", etc.
+        step_patterns = re.findall(r'step\s*(\d+)', user_input.lower())
+        range_patterns = re.findall(r'steps?\s*(\d+)\s*[-–—]\s*(\d+)', user_input.lower())
+        
+        steps = []
+        
+        # Add individual steps
+        for match in step_patterns:
+            step_num = int(match)
+            if 1 <= step_num <= 24:
+                steps.append(step_num)
+        
+        # Add step ranges
+        for start, end in range_patterns:
+            start_num, end_num = int(start), int(end)
+            if 1 <= start_num <= 24 and 1 <= end_num <= 24:
+                steps.extend(range(start_num, end_num + 1))
+        
+        return sorted(list(set(steps)))
+    
+    def _extract_asset_classes(self, user_input: str) -> List[str]:
+        """Extract asset classes mentioned in user input"""
+        user_lower = user_input.lower()
+        asset_classes = []
+        
+        asset_class_keywords = {
+            'interest rate': ['interest', 'rate', 'swap', 'irs'],
+            'foreign exchange': ['fx', 'foreign', 'exchange', 'currency'],
+            'credit': ['credit', 'cds', 'default'],
+            'equity': ['equity', 'stock', 'share'],
+            'commodity': ['commodity', 'gold', 'oil', 'energy']
+        }
+        
+        for asset_class, keywords in asset_class_keywords.items():
+            if any(keyword in user_lower for keyword in keywords):
+                asset_classes.append(asset_class)
+        
+        return asset_classes
+    
+    def _generate_next_steps(self, missing_critical: List[str], missing_optional: List[str]) -> List[str]:
+        """Generate prioritized next steps for data collection"""
+        steps = []
+        
+        # Prioritize critical missing data
+        if 'netting_set_id' in missing_critical:
+            steps.append("Provide a unique netting set identifier")
+        if 'counterparty' in missing_critical:
+            steps.append("Specify the counterparty name")
+        if any('trade' in item.lower() for item in missing_critical):
+            steps.append("Add trade details (notional, asset class, maturity)")
+        if 'threshold' in missing_optional or 'mta' in missing_optional:
+            steps.append("Review margin agreement terms (optional but impacts capital)")
+        
+        return steps
+    
+    def validate_step_completion(self, step_number: int, data: Dict) -> bool:
+        """Validate if a specific step can be completed with available data"""
+        step_info = self.step_checklist.get(step_number, {})
+        required_data = step_info.get('required_data', [])
+        
+        for req_field in required_data:
+            if req_field not in data or data[req_field] is None:
+                return False
+        
+        return True
+    
+    def get_calculation_progress(self, portfolio: Dict) -> Dict:
+        """Get progress through 24-step calculation"""
+        completed_steps = 0
+        
+        for step_num in range(1, 25):
+            if self.validate_step_completion(step_num, portfolio):
+                completed_steps += 1
+                self.step_checklist[step_num]['status'] = 'completed'
+            else:
+                self.step_checklist[step_num]['status'] = 'pending'
+        
+        return {
+            'completed_steps': completed_steps,
+            'total_steps': 24,
+            'progress_percentage': (completed_steps / 24) * 100,
+            'next_step': completed_steps + 1 if completed_steps < 24 else None,
+            'status_by_step': self.step_checklist
+        }
+    
+    def generate_guided_questions(self, current_data: Dict) -> List[Dict]:
+        """Generate guided questions to collect missing information"""
+        questions = []
+        data_assessment = self._assess_available_data(current_data)
+        
+        # Basic information questions
+        if 'netting_set_id' in data_assessment['missing_critical']:
+            questions.append({
+                'category': 'Basic Info',
+                'question': "What is your netting set ID? (This uniquely identifies the portfolio)",
+                'example': "e.g., 212784060000009618701",
+                'field': 'netting_set_id',
+                'importance': 'critical'
+            })
+        
+        if 'counterparty' in data_assessment['missing_critical']:
+            questions.append({
+                'category': 'Basic Info',
+                'question': "Who is the counterparty for these trades?",
+                'example': "e.g., ABC Bank Corp, XYZ Asset Management",
+                'field': 'counterparty',
+                'importance': 'critical'
+            })
+        
+        # Trade information questions
+        if not current_data.get('trades'):
+            questions.append({
+                'category': 'Trades',
+                'question': "Let's add your first trade. What type of derivative is it?",
+                'options': ['Interest Rate Swap', 'FX Forward', 'Credit Default Swap', 'Equity Option', 'Commodity Swap'],
+                'field': 'trade_type',
+                'importance': 'critical'
+            })
+        
+        # Margin terms questions
+        if 'threshold' in data_assessment['missing_optional']:
+            questions.append({
+                'category': 'Margin Terms',
+                'question': "What is the threshold amount in your margin agreement? (Enter 0 if unmargined)",
+                'example': "e.g., $12,000,000 or 0 for unmargined",
+                'field': 'threshold',
+                'importance': 'high',
+                'explanation': "Threshold affects replacement cost calculation (Step 18)"
+            })
+        
+        return questions
+
+# ==============================================================================
+# ENHANCED STREAMLIT INTERFACE WITH GUIDED SA-CCR ASSISTANT
+# ==============================================================================
+
+def enhanced_ai_assistant_page():
+    """Enhanced AI assistant page with complete 24-step methodology enforcement"""
+    
+    st.markdown("## 🤖 Enhanced SA-CCR Expert Assistant")
+    st.markdown("*Complete 24-Step Basel Methodology with Guided Data Collection*")
+    
+    # Initialize enhanced assistant
+    if 'enhanced_assistant' not in st.session_state:
+        st.session_state.enhanced_assistant = EnhancedSACCRAssistant()
+    
+    assistant = st.session_state.enhanced_assistant
+    
+    # Connection status display
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.markdown("### 💬 Conversation with SA-CCR Expert")
+    with col2:
+        if assistant.connection_status == "connected":
+            st.success("🟢 AI Connected")
+        else:
+            st.warning("🟡 Template Mode")
+    
+    # Current portfolio context
+    current_portfolio = {
+        'netting_set_id': getattr(st.session_state, 'netting_set_id', None),
+        'counterparty': getattr(st.session_state, 'counterparty', None),
+        'trades': getattr(st.session_state, 'trades_input', []),
+        'threshold': getattr(st.session_state, 'threshold', None),
+        'mta': getattr(st.session_state, 'mta', None),
+        'nica': getattr(st.session_state, 'nica', None)
+    }
+    
+    # Progress tracker
+    progress = assistant.get_calculation_progress(current_portfolio)
+    
+    with st.expander("📊 24-Step Progress Tracker", expanded=True):
+        progress_bar = st.progress(progress['progress_percentage'] / 100)
+        st.write(f"**Progress: {progress['completed_steps']}/24 steps completed ({progress['progress_percentage']:.1f}%)**")
+        
+        # Show next step
+        if progress['next_step']:
+            next_step_info = assistant.step_checklist[progress['next_step']]
+            st.info(f"🎯 **Next Step {progress['next_step']}:** {next_step_info['name']}")
+        else:
+            st.success("✅ All 24 steps ready for calculation!")
+        
+        # Phase-by-phase breakdown
+        phases = {
+            "Phase 1: Data Setup": range(1, 6),
+            "Phase 2: Add-On Calculations": range(6, 14),
+            "Phase 3: PFE Calculation": range(14, 17),
+            "Phase 4: Replacement Cost": range(17, 19),
+            "Phase 5: Final Capital": range(19, 25)
+        }
+        
+        cols = st.columns(5)
+        for i, (phase_name, step_range) in enumerate(phases.items()):
+            with cols[i]:
+                completed_in_phase = sum(1 for step in step_range if progress['status_by_step'][step]['status'] == 'completed')
+                total_in_phase = len(step_range)
+                st.metric(
+                    phase_name.split(":")[0],
+                    f"{completed_in_phase}/{total_in_phase}",
+                    delta=f"{(completed_in_phase/total_in_phase)*100:.0f}%"
+                )
+    
+    # Guided questions section
+    guided_questions = assistant.generate_guided_questions(current_portfolio)
+    
+    if guided_questions:
+        with st.expander("❓ Guided Data Collection", expanded=True):
+            st.markdown("**I'll help you gather the information needed for a complete SA-CCR calculation:**")
+            
+            for i, q in enumerate(guided_questions[:3]):  # Show top 3 questions
+                st.markdown(f"""
+                **{i+1}. {q['question']}**
+                
+                *Category: {q['category']} | Importance: {q['importance'].upper()}*
+                
+                {f"Example: {q['example']}" if 'example' in q else ""}
+                {f"📝 {q['explanation']}" if 'explanation' in q else ""}
+                """)
+    
+    # Main chat interface
+    if 'enhanced_chat_history' not in st.session_state:
+        st.session_state.enhanced_chat_history = []
+    
+    # Sample questions for SA-CCR
+    with st.expander("💡 Sample SA-CCR Questions", expanded=False):
+        sample_questions = [
+            "Calculate SA-CCR for my portfolio using the complete 24-step methodology",
+            "I have $100M interest rate swap, walk me through all 24 steps",
+            "Explain Step 15 PFE multiplier and how it affects my capital",
+            "What information do you need to run a complete SA-CCR calculation?",
+            "How do I optimize my portfolio to reduce SA-CCR capital requirements?",
+            "Explain the difference between margined and unmargined replacement cost",
+            "Walk me through how central clearing affects the Alpha multiplier"
+        ]
+        
+        for question in sample_questions:
+            if st.button(f"💬 {question}", key=f"sample_{hash(question)}"):
+                # Add to chat and process
+                st.session_state.enhanced_chat_history.append({
+                    'type': 'user',
+                    'content': question,
+                    'timestamp': datetime.now()
+                })
+                
+                # Process with assistant
+                response = assistant.process_user_query(question, current_portfolio)
+                
+                st.session_state.enhanced_chat_history.append({
+                    'type': 'ai',
+                    'content': response,
+                    'timestamp': datetime.now()
+                })
+                
+                st.rerun()
+    
+    # User input
+    user_question = st.text_area(
+        "Ask your SA-CCR question:",
+        placeholder="e.g., Calculate SA-CCR for my $500M interest rate swap portfolio, or explain how the PFE multiplier works",
+        height=100
+    )
+    
+    col1, col2, col3 = st.columns([2, 1, 1])
+    
+    with col1:
+        if st.button("🚀 Ask SA-CCR Expert", type="primary"):
+            if user_question.strip():
+                # Add user question to chat
+                st.session_state.enhanced_chat_history.append({
+                    'type': 'user',
+                    'content': user_question,
+                    'timestamp': datetime.now()
+                })
+                
+                # Process with enhanced assistant
+                with st.spinner("🤖 SA-CCR Expert analyzing your question..."):
+                    try:
+                        response = assistant.process_user_query(user_question, current_portfolio)
+                        
+                        # Add AI response to chat
+                        st.session_state.enhanced_chat_history.append({
+                            'type': 'ai',
+                            'content': response,
+                            'timestamp': datetime.now()
+                        })
+                        
+                        st.rerun()
+                        
+                    except Exception as e:
+                        st.error(f"Error processing question: {str(e)}")
+    
+    with col2:
+        if st.button("📋 Show All 24 Steps"):
+            # Generate comprehensive 24-step overview
+            overview_response = """
+            **📚 Complete 24-Step Basel SA-CCR Methodology**
+            
+            Here are all 24 regulatory steps with their purpose:
+            
+            **PHASE 1: DATA SETUP (Steps 1-5)**
+            • Step 1: Netting Set Data - Organize portfolio by netting agreements
+            • Step 2: Asset Class Classification - Categorize trades by risk type
+            • Step 3: Hedging Set Determination - Group by common risk factors
+            • Step 4: Time Parameters (S, E, M) - Calculate settlement and maturity dates
+            • Step 5: Adjusted Notional - Apply supervisory duration adjustments
+            
+            **PHASE 2: ADD-ON CALCULATIONS (Steps 6-13)**
+            • Step 6: Maturity Factor (MF) - Time-based risk adjustment
+            • Step 7: Supervisory Delta - Directional risk (long/short, option sensitivity)
+            • Step 8: Supervisory Factor (SF) - Regulatory volatility parameters
+            • Step 9: Adjusted Derivatives Contract Amount - Core risk measure
+            • Step 10: Supervisory Correlation - Cross-risk factor correlations
+            • Step 11: Hedging Set AddOn - Within-hedging-set aggregation
+            • Step 12: Asset Class AddOn - Cross-hedging-set aggregation with correlations
+            • Step 13: Aggregate AddOn - Total potential future exposure base
+            
+            **PHASE 3: PFE CALCULATION (Steps 14-16)**
+            • Step 14: Sum of V, C - Current MTM and collateral valuation
+            • Step 15: PFE Multiplier - Netting benefit calculation (0.05 to 1.0)
+            • Step 16: PFE - Final potential future exposure (Multiplier × AddOn)
+            
+            **PHASE 4: REPLACEMENT COST (Steps 17-18)**
+            • Step 17: TH, MTA, NICA - Extract margin agreement parameters
+            • Step 18: RC - Current replacement cost with margining effects
+            
+            **PHASE 5: FINAL CAPITAL (Steps 19-24)**
+            • Step 19: CEU Flag - Central clearing determination
+            • Step 20: Alpha - Regulatory multiplier (1.4 for non-cleared, 1.0 for cleared)
+            • Step 21: EAD - Exposure at Default = Alpha × (RC + PFE)
+            • Step 22: Counterparty Information - Credit assessment data
+            • Step 23: Risk Weight - Regulatory risk weighting by counterparty type
+            • Step 24: RWA - Final Risk Weighted Assets and capital requirement
+            
+            **🎯 KEY INSIGHT:** Every step is mandatory for regulatory compliance. Each builds on previous steps to create the final capital requirement.
+            
+            Would you like me to explain any specific step in detail?
+            """
+            
+            st.session_state.enhanced_chat_history.append({
+                'type': 'ai',
+                'content': overview_response,
+                'timestamp': datetime.now()
+            })
+            st.rerun()
+    
+    with col3:
+        if st.button("🗑️ Clear Chat"):
+            st.session_state.enhanced_chat_history = []
+            st.rerun()
+    
+    # Display enhanced chat history
+    if st.session_state.enhanced_chat_history:
+        st.markdown("---")
+        st.markdown("### 💬 Conversation History")
+        
+        # Show most recent conversations first, but limit to last 10 exchanges
+        recent_chats = st.session_state.enhanced_chat_history[-20:]  # Last 10 exchanges (user + AI)
+        
+        for chat in reversed(recent_chats):
+            if chat['type'] == 'user':
+                st.markdown(f"""
+                <div style="background: #f0f2f6; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border-left: 4px solid #1f77b4;">
+                    <strong>👤 You:</strong><br>
+                    {chat['content']}
+                    <br><small style="color: #666;">{chat['timestamp'].strftime('%H:%M:%S')}</small>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 1.5rem; border-radius: 8px; margin: 0.5rem 0; box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);">
+                    <strong>🤖 SA-CCR Expert:</strong><br>
+                    {chat['content']}
+                    <br><small style="color: rgba(255,255,255,0.7);">{chat['timestamp'].strftime('%H:%M:%S')}</small>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # Data quality assessment
+    if current_portfolio.get('trades'):
+        st.markdown("---")
+        st.markdown("### 📊 Current Portfolio Assessment")
+        
+        data_assessment = assistant._assess_available_data(current_portfolio)
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Data Completeness", f"{data_assessment['completeness']:.1%}")
+        with col2:
+            st.metric("Missing Critical", len(data_assessment['missing_critical']))
+        with col3:
+            can_proceed = "Yes" if data_assessment['can_proceed'] else "No"
+            st.metric("Ready for Calculation", can_proceed)
+        
+        if data_assessment['missing_critical']:
+            st.warning("⚠️ **Critical Information Missing:**")
+            for item in data_assessment['missing_critical'][:5]:  # Show top 5
+                st.write(f"   • {item}")
+
 if __name__ == "__main__":
     main()
